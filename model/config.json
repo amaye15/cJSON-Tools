@@ -1,0 +1,25 @@
+{
+  "architectures": [
+    "AIMv2Model"
+  ],
+  "attention_dropout": 0.0,
+  "auto_map": {
+    "AutoConfig": "configuration_aimv2.AIMv2Config",
+    "AutoModel": "modeling_aimv2.AIMv2Model",
+    "FlaxAutoModel": "modeling_flax_aimv2.FlaxAIMv2Model"
+  },
+  "hidden_size": 1024,
+  "intermediate_size": 2816,
+  "model_type": "aimv2",
+  "num_attention_heads": 8,
+  "num_channels": 3,
+  "num_hidden_layers": 24,
+  "num_queries": 256,
+  "patch_size": 14,
+  "projection_dropout": 0.0,
+  "qkv_bias": false,
+  "rms_norm_eps": 1e-05,
+  "torch_dtype": "float32",
+  "transformers_version": "4.46.3",
+  "use_bias": false
+}
