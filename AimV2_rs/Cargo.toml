@@ -1,0 +1,20 @@
+[package]
+name = "aimv2-model-rs"
+version = "0.1.0"
+edition = "2024"
+
+# [dependencies]
+# image = "0.24.7"
+# ndarray = "0.15.6"
+# serde = { version = "1.0.193", features = ["derive"] }
+# serde_json = "1.0.108"
+# anyhow = "1.0"
+# tch = { version = "0.19.0", features = ["download-libtorch"]}
+
+
+[dependencies]
+tch = { version = "0.19.0", features = ["download-libtorch"] } # Or your actual version
+anyhow = "1.0"
+safetensors = "0.5" # Or newer compatible version
+memmap2 = "0.9.4"    # For efficient file loading
+
