@@ -1,9 +1,10 @@
 use anyhow::{Result, Context};
 use tch::{
     nn::{self, Module, ModuleT}, // Added ModuleT
-    Kind, Tensor, Device, vision,
+    Kind, Tensor, Device, vision
 };
 
+use std::path::Path;
 
 // use aimv2_model_rs::norm::{RMSNorm};
 use aimv2_model_rs::utils::{auto_device};
@@ -128,17 +129,21 @@ fn main() -> Result<()> {
     // 1. Load Image
     let original_img = vision::image::load(image_path)
         .with_context(|| format!("Failed to load image: {}", image_path))?;
+    
 
     // 4. Add batch dimension and move to device
     let input_tensor = original_img.unsqueeze(0).to_device(device).to_kind(Kind::Float);
     println!("Final input tensor shape: {:?}, device: {:?}", input_tensor.size(), input_tensor.device());
+    
 
     // --- Model Loading and Inference ---
     let mut vs = nn::VarStore::new(device);
     let model = AIMv2Model::new(&vs.root(), &config);
     println!("Model structure created.");
 
-    let weights_path = "/Users/andrewmayes/Dev/aimv2-large-patch14-native/aimv2_large_patch14_native/model.safetensors"; // Adjust path if needed
+
+
+    let weights_path = "/Users/andrewmayes/Dev/AIMv2-rs/model/model.safetensors"; // Adjust path if needed
     println!("Loading weights from: {}", weights_path);
     vs.load(weights_path)
         .with_context(|| format!("Failed to load weights from '{}'", weights_path))?;
