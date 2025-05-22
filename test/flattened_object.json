@@ -1,0 +1,21 @@
+{
+	"name":	"John Doe",
+	"age":	30,
+	"address.street":	"123 Main St",
+	"address.city":	"Anytown",
+	"address.zipcode":	"12345",
+	"contact.email":	"john@example.com",
+	"contact.phone.home":	"555-1234",
+	"contact.phone.mobile":	"555-5678",
+	"skills[0]":	"programming",
+	"skills[1]":	"design",
+	"skills[2]":	"communication",
+	"education[0].degree":	"Bachelor",
+	"education[0].field":	"Computer Science",
+	"education[0].year":	2015,
+	"education[1].degree":	"Master",
+	"education[1].field":	"Data Science",
+	"education[1].year":	2018,
+	"active":	true,
+	"salary":	75000.5
+}
