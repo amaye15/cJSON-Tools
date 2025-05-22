@@ -1,21 +1,18 @@
 from setuptools import setup, Extension, find_packages
 import os
 
-# Get the absolute path to the project root
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-
 # Define the extension module
 json_alchemy_module = Extension(
     'json_alchemy._json_alchemy',
     sources=[
         'json_alchemy/_json_alchemy.c',
-        os.path.join(project_root, 'src/json_flattener.c'),
-        os.path.join(project_root, 'src/json_schema_generator.c'),
-        os.path.join(project_root, 'src/json_utils.c'),
-        os.path.join(project_root, 'src/thread_pool.c'),
+        'json_alchemy/src/json_flattener.c',
+        'json_alchemy/src/json_schema_generator.c',
+        'json_alchemy/src/json_utils.c',
+        'json_alchemy/src/thread_pool.c',
     ],
     include_dirs=[
-        os.path.join(project_root, 'include'),
+        'json_alchemy/include',
     ],
     libraries=['cjson', 'pthread'],
     extra_compile_args=['-std=c99', '-Wall', '-Wextra'],
