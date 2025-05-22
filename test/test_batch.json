@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "age": 30,
+    "active": true,
+    "tags": ["developer", "frontend"],
+    "address": {
+      "street": "123 Main St",
+      "city": "Anytown",
+      "zipcode": "12345"
+    }
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "age": 28,
+    "active": false,
+    "tags": ["designer", "ui/ux"],
+    "address": {
+      "street": "456 Oak Ave",
+      "city": "Somewhere",
+      "zipcode": "67890"
+    }
+  },
+  {
+    "id": 3,
+    "name": "Bob Johnson",
+    "email": "bob@example.com",
+    "age": 35,
+    "active": true,
+    "tags": ["developer", "backend", "devops"],
+    "address": {
+      "street": "789 Pine Rd",
+      "city": "Elsewhere",
+      "zipcode": "54321"
+    }
+  }
+]

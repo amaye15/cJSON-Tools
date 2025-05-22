@@ -1,0 +1,31 @@
+{
+  "name": "John Doe",
+  "age": 30,
+  "address": {
+    "street": "123 Main St",
+    "city": "Anytown",
+    "zipcode": "12345"
+  },
+  "contact": {
+    "email": "john@example.com",
+    "phone": {
+      "home": "555-1234",
+      "mobile": "555-5678"
+    }
+  },
+  "skills": ["programming", "design", "communication"],
+  "education": [
+    {
+      "degree": "Bachelor",
+      "field": "Computer Science",
+      "year": 2015
+    },
+    {
+      "degree": "Master",
+      "field": "Data Science",
+      "year": 2018
+    }
+  ],
+  "active": true,
+  "salary": 75000.50
+}
