@@ -1,6 +1,13 @@
-# JSON Alchemy Python Bindings
+# JSON Alchemy
 
-Python bindings for the JSON Alchemy C library, providing high-performance JSON flattening and schema generation.
+Python bindings for the JSON Alchemy C library - a high-performance JSON processing toolkit.
+
+## Features
+
+- **JSON Flattening**: Convert nested JSON objects to flat key-value pairs
+- **JSON Schema Generation**: Generate JSON schemas from JSON objects
+- **Batch Processing**: Process multiple JSON objects in a single operation
+- **Multi-threading**: Utilize multiple CPU cores for improved performance
 
 ## Installation
 
@@ -8,97 +15,128 @@ Python bindings for the JSON Alchemy C library, providing high-performance JSON 
 pip install json-alchemy
 ```
 
-## Features
+### Requirements
 
-- **JSON Flattening**: Convert nested JSON structures into flat key-value pairs
-- **JSON Schema Generation**: Generate JSON schemas from JSON objects
-- **Multi-threading Support**: Utilize multiple CPU cores for processing large datasets
-- **High Performance**: C-based implementation for maximum speed
+- Python 3.8 or higher
+- libcjson-dev (on Linux systems)
 
 ## Usage
 
-### Flattening JSON
+### JSON Flattening
 
 ```python
 import json
-from json_alchemy import flatten_json
+from json_alchemy import flatten_json, flatten_json_batch
 
-# Flatten a single JSON object
-nested_json = '''
-{
+# Single object flattening
+nested_json = {
     "person": {
-        "name": "John Doe",
+        "name": "John",
         "age": 30,
         "address": {
-            "street": "123 Main St",
-            "city": "Anytown",
-            "zip": "12345"
+            "city": "New York",
+            "zip": "10001"
         }
     }
 }
-'''
 
-flattened = flatten_json(nested_json)
-print(json.loads(flattened))
-# Output: {"person.name": "John Doe", "person.age": 30, "person.address.street": "123 Main St", ...}
-```
+flat_json = flatten_json(nested_json)
+print(json.dumps(flat_json, indent=2))
+# Output:
+# {
+#   "person.name": "John",
+#   "person.age": 30,
+#   "person.address.city": "New York",
+#   "person.address.zip": "10001"
+# }
 
-### Batch Processing
-
-```python
-from json_alchemy import flatten_json_batch
-
-# Process multiple JSON objects at once
+# Batch processing
 json_objects = [
-    '{"a": {"b": 1}}',
-    '{"x": {"y": {"z": 2}}}'
+    {"a": {"b": 1}},
+    {"c": {"d": 2}}
 ]
 
+# Single-threaded batch processing
 flattened_batch = flatten_json_batch(json_objects)
-print(flattened_batch)
-# Output: ['{"a.b": 1}', '{"x.y.z": 2}']
+
+# Multi-threaded batch processing (auto thread count)
+flattened_batch_mt = flatten_json_batch(json_objects, multi_threaded=True)
+
+# Multi-threaded batch processing (specific thread count)
+flattened_batch_mt_spec = flatten_json_batch(json_objects, multi_threaded=True, thread_count=4)
 ```
 
-### Schema Generation
+### JSON Schema Generation
 
 ```python
-from json_alchemy import generate_schema
+from json_alchemy import generate_schema, generate_schema_batch
 
-# Generate a schema from a JSON object
-json_obj = '''
-{
-    "id": 1,
-    "name": "Product",
-    "price": 29.99,
-    "tags": ["electronics", "gadget"]
+# Single object schema generation
+json_obj = {
+    "name": "John",
+    "age": 30,
+    "is_active": True,
+    "scores": [85, 90, 78],
+    "address": {
+        "city": "New York",
+        "zip": "10001"
+    }
 }
-'''
 
 schema = generate_schema(json_obj)
-print(json.loads(schema))
-# Output: {"type": "object", "properties": {"id": {"type": "number"}, ...}}
+print(json.dumps(schema, indent=2))
+# Output:
+# {
+#   "type": "object",
+#   "properties": {
+#     "name": {"type": "string"},
+#     "age": {"type": "integer"},
+#     "is_active": {"type": "boolean"},
+#     "scores": {
+#       "type": "array",
+#       "items": {"type": "integer"}
+#     },
+#     "address": {
+#       "type": "object",
+#       "properties": {
+#         "city": {"type": "string"},
+#         "zip": {"type": "string"}
+#       }
+#     }
+#   }
+# }
+
+# Batch processing
+json_objects = [
+    {"a": 1, "b": "string"},
+    {"a": 2, "c": True}
+]
+
+# Single-threaded batch processing
+schema_batch = generate_schema_batch(json_objects)
+
+# Multi-threaded batch processing (auto thread count)
+schema_batch_mt = generate_schema_batch(json_objects, multi_threaded=True)
+
+# Multi-threaded batch processing (specific thread count)
+schema_batch_mt_spec = generate_schema_batch(json_objects, multi_threaded=True, thread_count=4)
 ```
 
-### Multi-threading
+## Performance Considerations
 
-```python
-from json_alchemy import flatten_json_batch, generate_schema_batch
+Based on our benchmarks:
 
-# Enable multi-threading with a specific number of threads
-flattened = flatten_json_batch(large_json_list, use_threads=True, num_threads=4)
+1. **Batch Processing**:
+   - For small to medium batches (10-1000 objects), batch processing provides significant speedups.
+   - For larger batches (5000+ objects), consider splitting them into smaller batches.
 
-# Auto-detect the optimal number of threads
-schema = generate_schema_batch(large_json_list, use_threads=True)
-```
+2. **Multi-threading**:
+   - Multi-threading provides significant speedups for medium-sized batches (around 1000 objects).
+   - For very small batches, the overhead of thread creation may outweigh the benefits.
 
-## Performance
-
-The C-based implementation provides significant performance benefits compared to pure Python implementations, especially for large datasets. The multi-threading support can further improve performance on multi-core systems.
-
-## Requirements
-
-- Python 3.6+
-- libcjson-dev (cJSON library)
+3. **Optimal Batch Size**:
+   - The optimal batch size for flattening operations is around 1000 objects.
+   - The optimal batch size for schema generation is around 10-100 objects.
 
 ## Building from Source
 
@@ -114,3 +152,9 @@ pip install -e .
 ## License
 
 MIT License
+
+## Links
+
+- [GitHub Repository](https://github.com/amaye15/AIMv2-rs)
+- [Documentation](https://github.com/amaye15/AIMv2-rs/blob/main/python/PYTHON.md)
+- [Benchmarks](https://github.com/amaye15/AIMv2-rs/blob/main/python/benchmarks/README.md)

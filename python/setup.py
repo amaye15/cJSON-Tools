@@ -23,7 +23,7 @@ json_alchemy_module = Extension(
 
 setup(
     name='json_alchemy',
-    version='1.2.0',
+    version='1.3.1',
     description='Python bindings for the JSON Alchemy C library',
     author='JSON Alchemy Team',
     author_email='openhands@all-hands.dev',
@@ -35,8 +35,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
@@ -46,5 +44,5 @@ setup(
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.8',
 )

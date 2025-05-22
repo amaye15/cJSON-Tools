@@ -1,4 +1,7 @@
 include json_alchemy/*.h
 include json_alchemy/*.c
+include LICENSE
+include README.md
+include PYTHON.md
 recursive-include ../include *.h
 recursive-include ../src *.c
