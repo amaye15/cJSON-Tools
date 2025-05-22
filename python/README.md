@@ -18,7 +18,15 @@ pip install json-alchemy
 ### Requirements
 
 - Python 3.8 or higher
-- libcjson-dev (on Linux systems)
+- cJSON library (libcjson-dev on Linux systems)
+
+Before installing, make sure you have the cJSON library installed:
+
+- **Debian/Ubuntu**: `sudo apt-get install libcjson-dev`
+- **macOS**: `brew install cjson`
+- **CentOS/RHEL**: `sudo yum install libcjson-devel`
+
+For more detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## Usage
 
@@ -140,6 +148,8 @@ Based on our benchmarks:
 
 ## Building from Source
 
+First, ensure you have the cJSON library installed (see [Requirements](#requirements) above).
+
 ```bash
 # Clone the repository
 git clone https://github.com/amaye15/AIMv2-rs.git
@@ -148,6 +158,8 @@ cd AIMv2-rs/python
 # Install the package in development mode
 pip install -e .
 ```
+
+If you encounter any issues during installation, please refer to the [INSTALL.md](INSTALL.md) file for troubleshooting.
 
 ## License
 

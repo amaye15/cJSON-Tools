@@ -4,3 +4,4 @@ include json_alchemy/src/*.c
 include LICENSE
 include README.md
 include PYTHON.md
+include INSTALL.md
