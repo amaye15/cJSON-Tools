@@ -1,7 +1,7 @@
 #ifndef JSON_FLATTENER_H
 #define JSON_FLATTENER_H
 
-#include <cjson/cJSON.h>
+#include "cjson/cJSON.h"
 
 /**
  * Flattens a single JSON object

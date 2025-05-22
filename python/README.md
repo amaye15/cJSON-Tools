@@ -18,13 +18,9 @@ pip install json-alchemy
 ### Requirements
 
 - Python 3.8 or higher
-- cJSON library (libcjson-dev on Linux systems)
+- Python development headers (python3-dev on Linux systems)
 
-Before installing, make sure you have the cJSON library installed:
-
-- **Debian/Ubuntu**: `sudo apt-get install libcjson-dev`
-- **macOS**: `brew install cjson`
-- **CentOS/RHEL**: `sudo yum install libcjson-devel`
+The cJSON library is now included directly in the repository, so you don't need to install it separately.
 
 For more detailed installation instructions, see [INSTALL.md](INSTALL.md).
 

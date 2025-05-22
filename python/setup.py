@@ -10,11 +10,12 @@ json_alchemy_module = Extension(
         'json_alchemy/src/json_schema_generator.c',
         'json_alchemy/src/json_utils.c',
         'json_alchemy/src/thread_pool.c',
+        'json_alchemy/src/cJSON.c',  # Include cJSON directly
     ],
     include_dirs=[
         'json_alchemy/include',
     ],
-    libraries=['cjson', 'pthread'],
+    libraries=['pthread'],  # Removed cjson as we're including it directly
     extra_compile_args=['-std=c99', '-Wall', '-Wextra'],
 )
 

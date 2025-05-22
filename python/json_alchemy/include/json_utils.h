@@ -1,7 +1,7 @@
 #ifndef JSON_UTILS_H
 #define JSON_UTILS_H
 
-#include <cjson/cJSON.h>
+#include "cjson/cJSON.h"
 
 /**
  * Custom string duplication function (replacement for strdup)

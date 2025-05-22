@@ -6,35 +6,7 @@ Before installing JSON Alchemy, you need to have the following dependencies inst
 
 ### Required Dependencies
 
-1. **cJSON Library**: This is required for the C extension to compile.
-
-   - On Debian/Ubuntu:
-     ```bash
-     sudo apt-get install libcjson-dev
-     ```
-
-   - On macOS (using Homebrew):
-     ```bash
-     brew install cjson
-     ```
-
-   - On CentOS/RHEL:
-     ```bash
-     sudo yum install libcjson-devel
-     ```
-
-   - From source:
-     ```bash
-     git clone https://github.com/DaveGamble/cJSON.git
-     cd cJSON
-     mkdir build
-     cd build
-     cmake ..
-     make
-     sudo make install
-     ```
-
-2. **Python Development Headers**: Required for building Python C extensions.
+1. **Python Development Headers**: Required for building Python C extensions.
 
    - On Debian/Ubuntu:
      ```bash
@@ -50,6 +22,10 @@ Before installing JSON Alchemy, you need to have the following dependencies inst
      ```bash
      sudo yum install python3-devel
      ```
+
+### Note on cJSON
+
+The cJSON library is now included directly in the repository, so you don't need to install it separately.
 
 ## Installation
 

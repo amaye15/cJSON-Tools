@@ -1,7 +1,7 @@
 #ifndef JSON_SCHEMA_GENERATOR_H
 #define JSON_SCHEMA_GENERATOR_H
 
-#include <cjson/cJSON.h>
+#include "cjson/cJSON.h"
 
 /**
  * Generates a JSON schema from a single JSON object

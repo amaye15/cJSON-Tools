@@ -1,5 +1,6 @@
 include json_alchemy/*.c
 include json_alchemy/include/*.h
+include json_alchemy/include/cjson/*.h
 include json_alchemy/src/*.c
 include LICENSE
 include README.md
