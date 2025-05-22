@@ -18,10 +18,15 @@ json_alchemy_module = Extension(
     extra_compile_args=['-std=c99', '-Wall', '-Wextra'],
 )
 
+with open('README.md', 'r', encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(
     name='json_alchemy',
     version='1.3.1',
     description='Python bindings for the JSON Alchemy C library',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author='JSON Alchemy Team',
     author_email='openhands@all-hands.dev',
     url='https://github.com/amaye15/AIMv2-rs',
