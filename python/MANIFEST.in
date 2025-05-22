@@ -1,0 +1,4 @@
+include json_alchemy/*.h
+include json_alchemy/*.c
+recursive-include ../include *.h
+recursive-include ../src *.c
