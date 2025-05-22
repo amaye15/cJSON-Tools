@@ -1,5 +1,6 @@
 #include "../include/json_flattener.h"
 #include "../include/json_utils.h"
+#include "../include/thread_pool.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,8 @@
 
 #define MAX_KEY_LENGTH 1024
 #define BATCH_SIZE 1000
+#define MIN_OBJECTS_PER_THREAD 50  // Minimum number of objects to process per thread
+#define MIN_BATCH_SIZE_FOR_MT 200  // Minimum batch size to use multi-threading
 
 // Structure to hold a flattened key-value pair
 typedef struct {
@@ -23,11 +26,9 @@ typedef struct {
 
 // Thread data structure
 typedef struct {
-    cJSON** objects;
-    cJSON** results;
-    int start_idx;
-    int end_idx;
-    int thread_id;
+    cJSON* object;
+    cJSON* result;
+    pthread_mutex_t* result_mutex;
 } ThreadData;
 
 // Initialize the flattened array
@@ -191,14 +192,19 @@ cJSON* flatten_single_object(cJSON* json) {
 }
 
 // Thread worker function for batch flattening
-void* flatten_batch_worker(void* arg) {
+void flatten_object_task(void* arg) {
     ThreadData* data = (ThreadData*)arg;
     
-    for (int i = data->start_idx; i < data->end_idx; i++) {
-        data->results[i] = flatten_single_object(data->objects[i]);
+    // Process the object
+    cJSON* flattened = flatten_single_object(data->object);
+    
+    // Store the result
+    if (flattened) {
+        data->result = flattened;
     }
     
-    return NULL;
+    // Note: We don't free the thread data here anymore
+    // It will be freed after collecting the results
 }
 
 // Implementation of the public API functions
@@ -223,9 +229,20 @@ cJSON* flatten_json_batch(cJSON* json_array, int use_threads, int num_threads) {
         return cJSON_CreateArray();
     }
     
-    // If only one item or threading disabled, process sequentially
-    if (array_size == 1 || !use_threads) {
-        cJSON* result = cJSON_CreateArray();
+    // Create result array
+    cJSON* result = cJSON_CreateArray();
+    
+    // Determine if multi-threading should be used
+    // Only use multi-threading if:
+    // 1. Threading is enabled
+    // 2. Array size is large enough to justify threading
+    // 3. We have more than one thread available
+    int should_use_threads = use_threads && 
+                            array_size >= MIN_BATCH_SIZE_FOR_MT && 
+                            get_optimal_threads(num_threads) > 1;
+    
+    // If threading is disabled or not beneficial, process sequentially
+    if (!should_use_threads) {
         for (int i = 0; i < array_size; i++) {
             cJSON* item = cJSON_GetArrayItem(json_array, i);
             cJSON* flattened = flatten_single_object(item);
@@ -236,62 +253,65 @@ cJSON* flatten_json_batch(cJSON* json_array, int use_threads, int num_threads) {
         return result;
     }
     
-    // Multi-threaded processing
-    int thread_count = get_optimal_threads(num_threads);
-    if (thread_count > array_size) {
-        thread_count = array_size;
+    // Multi-threaded processing with thread pool
+    ThreadPool* pool = thread_pool_create(num_threads);
+    if (!pool) {
+        // Fall back to sequential processing if thread pool creation fails
+        for (int i = 0; i < array_size; i++) {
+            cJSON* item = cJSON_GetArrayItem(json_array, i);
+            cJSON* flattened = flatten_single_object(item);
+            if (flattened) {
+                cJSON_AddItemToArray(result, flattened);
+            }
+        }
+        return result;
     }
     
-    pthread_t* threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t));
-    ThreadData* thread_data = (ThreadData*)malloc(thread_count * sizeof(ThreadData));
+    // Create an array of thread data structures
+    ThreadData** thread_data_array = (ThreadData**)calloc(array_size, sizeof(ThreadData*));
+    if (!thread_data_array) {
+        thread_pool_destroy(pool);
+        return result; // Return empty array
+    }
     
-    // Extract all objects into an array for easier access
-    cJSON** objects = (cJSON**)malloc(array_size * sizeof(cJSON*));
-    cJSON** results = (cJSON**)malloc(array_size * sizeof(cJSON*));
-    
+    // Submit tasks to thread pool
     for (int i = 0; i < array_size; i++) {
-        objects[i] = cJSON_GetArrayItem(json_array, i);
-        results[i] = NULL;
-    }
-    
-    // Divide work among threads
-    int items_per_thread = array_size / thread_count;
-    int remainder = array_size % thread_count;
-    
-    int start_idx = 0;
-    for (int i = 0; i < thread_count; i++) {
-        thread_data[i].objects = objects;
-        thread_data[i].results = results;
-        thread_data[i].start_idx = start_idx;
-        thread_data[i].thread_id = i;
+        ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
+        if (!data) continue;
         
-        // Distribute remainder items among the first 'remainder' threads
-        int extra = (i < remainder) ? 1 : 0;
-        thread_data[i].end_idx = start_idx + items_per_thread + extra;
+        data->object = cJSON_GetArrayItem(json_array, i);
+        data->result = NULL;
         
-        start_idx = thread_data[i].end_idx;
+        // Store the thread data for later collection
+        thread_data_array[i] = data;
         
-        pthread_create(&threads[i], NULL, flatten_batch_worker, &thread_data[i]);
-    }
-    
-    // Wait for all threads to complete
-    for (int i = 0; i < thread_count; i++) {
-        pthread_join(threads[i], NULL);
-    }
-    
-    // Create result array
-    cJSON* result = cJSON_CreateArray();
-    for (int i = 0; i < array_size; i++) {
-        if (results[i]) {
-            cJSON_AddItemToArray(result, results[i]);
+        // Add task to thread pool
+        if (thread_pool_add_task(pool, flatten_object_task, data) != 0) {
+            // If adding task fails, process it directly
+            flatten_object_task(data);
         }
     }
     
+    // Wait for all tasks to complete
+    thread_pool_wait(pool);
+    
+    // Collect results
+    for (int i = 0; i < array_size; i++) {
+        if (thread_data_array[i] && thread_data_array[i]->result) {
+            cJSON_AddItemToArray(result, thread_data_array[i]->result);
+        }
+        
+        // Free the individual thread data
+        if (thread_data_array[i]) {
+            free(thread_data_array[i]);
+        }
+    }
+    
+    // Free the thread data array
+    free(thread_data_array);
+    
     // Clean up
-    free(objects);
-    free(results);
-    free(threads);
-    free(thread_data);
+    thread_pool_destroy(pool);
     
     return result;
 }

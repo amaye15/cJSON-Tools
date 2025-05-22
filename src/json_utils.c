@@ -99,6 +99,20 @@ int get_optimal_threads(int requested_threads) {
     }
     
     int num_cores = get_num_cores();
-    // Use number of cores, but cap at 4 to avoid excessive threading overhead
-    return (num_cores > 4) ? 4 : num_cores;
+    
+    // For systems with many cores, we don't want to use all of them
+    // as the overhead of thread management can outweigh the benefits
+    // 
+    // Heuristic:
+    // - For 1-2 cores: use all cores
+    // - For 3-8 cores: use cores-1 (leave one for system)
+    // - For >8 cores: use cores/2 + 2
+    
+    if (num_cores <= 2) {
+        return num_cores;
+    } else if (num_cores <= 8) {
+        return num_cores - 1;
+    } else {
+        return (num_cores / 2) + 2;
+    }
 }

@@ -10,7 +10,8 @@ BIN_DIR = bin
 SRCS = $(SRC_DIR)/json_tools.c \
        $(SRC_DIR)/json_flattener.c \
        $(SRC_DIR)/json_schema_generator.c \
-       $(SRC_DIR)/json_utils.c
+       $(SRC_DIR)/json_utils.c \
+       $(SRC_DIR)/thread_pool.c
 
 # Object files
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))

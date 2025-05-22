@@ -1,9 +1,13 @@
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
+#include "../include/thread_pool.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+
+#define MIN_OBJECTS_PER_THREAD 50  // Minimum number of objects to process per thread
+#define MIN_BATCH_SIZE_FOR_MT 200  // Minimum batch size to use multi-threading
 
 // Schema node types
 typedef enum {
@@ -47,12 +51,9 @@ typedef struct PropertyNode {
 
 // Thread data structure
 typedef struct {
-    cJSON** objects;
-    SchemaNode** results;
-    int start_idx;
-    int end_idx;
-    int thread_id;
-    pthread_mutex_t* merge_mutex;
+    cJSON* object;
+    SchemaNode* result;
+    pthread_mutex_t* result_mutex;
 } ThreadData;
 
 // Create a new schema node
@@ -450,14 +451,14 @@ cJSON* schema_node_to_json(SchemaNode* node) {
 }
 
 // Thread worker function for schema generation
-void* generate_schema_worker(void* arg) {
+void generate_schema_task(void* arg) {
     ThreadData* data = (ThreadData*)arg;
     
-    for (int i = data->start_idx; i < data->end_idx; i++) {
-        data->results[i] = analyze_json_value(data->objects[i]);
-    }
+    // Process the object
+    data->result = analyze_json_value(data->object);
     
-    return NULL;
+    // Note: We don't free the thread data here anymore
+    // It will be freed after collecting the results
 }
 
 // Implementation of the public API functions
@@ -494,6 +495,15 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
         return generate_schema_from_object(item);
     }
     
+    // Determine if multi-threading should be used
+    // Only use multi-threading if:
+    // 1. Threading is enabled
+    // 2. Array size is large enough to justify threading
+    // 3. We have more than one thread available
+    int should_use_threads = use_threads && 
+                            array_size >= MIN_BATCH_SIZE_FOR_MT && 
+                            get_optimal_threads(num_threads) > 1;
+    
     // Extract all objects into an array for easier access
     cJSON** objects = (cJSON**)malloc(array_size * sizeof(cJSON*));
     SchemaNode** schemas = (SchemaNode**)malloc(array_size * sizeof(SchemaNode*));
@@ -503,51 +513,69 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
         schemas[i] = NULL;
     }
     
-    // If threading disabled, process sequentially
-    if (!use_threads) {
+    // If threading disabled or not beneficial, process sequentially
+    if (!should_use_threads) {
         for (int i = 0; i < array_size; i++) {
             schemas[i] = analyze_json_value(objects[i]);
         }
     } else {
-        // Multi-threaded processing
-        int thread_count = get_optimal_threads(num_threads);
-        if (thread_count > array_size) {
-            thread_count = array_size;
-        }
-        
-        pthread_t* threads = (pthread_t*)malloc(thread_count * sizeof(pthread_t));
-        ThreadData* thread_data = (ThreadData*)malloc(thread_count * sizeof(ThreadData));
-        pthread_mutex_t merge_mutex = PTHREAD_MUTEX_INITIALIZER;
-        
-        // Divide work among threads
-        int items_per_thread = array_size / thread_count;
-        int remainder = array_size % thread_count;
-        
-        int start_idx = 0;
-        for (int i = 0; i < thread_count; i++) {
-            thread_data[i].objects = objects;
-            thread_data[i].results = schemas;
-            thread_data[i].start_idx = start_idx;
-            thread_data[i].thread_id = i;
-            thread_data[i].merge_mutex = &merge_mutex;
+        // Multi-threaded processing with thread pool
+        ThreadPool* pool = thread_pool_create(num_threads);
+        if (!pool) {
+            // Fall back to sequential processing if thread pool creation fails
+            for (int i = 0; i < array_size; i++) {
+                schemas[i] = analyze_json_value(objects[i]);
+            }
+        } else {
+            pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
             
-            // Distribute remainder items among the first 'remainder' threads
-            int extra = (i < remainder) ? 1 : 0;
-            thread_data[i].end_idx = start_idx + items_per_thread + extra;
+            // Create an array of thread data structures
+            ThreadData** thread_data_array = (ThreadData**)calloc(array_size, sizeof(ThreadData*));
+            if (!thread_data_array) {
+                // Fall back to sequential processing
+                for (int i = 0; i < array_size; i++) {
+                    schemas[i] = analyze_json_value(objects[i]);
+                }
+            } else {
+                // Submit tasks to thread pool
+                for (int i = 0; i < array_size; i++) {
+                    ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
+                    if (!data) continue;
+                    
+                    data->object = objects[i];
+                    data->result = NULL;
+                    data->result_mutex = &result_mutex;
+                    
+                    // Store the thread data for later collection
+                    thread_data_array[i] = data;
+                    
+                    // Add task to thread pool
+                    if (thread_pool_add_task(pool, generate_schema_task, data) != 0) {
+                        // If adding task fails, process it directly
+                        generate_schema_task(data);
+                    }
+                }
+                
+                // Wait for all tasks to complete
+                thread_pool_wait(pool);
+                
+                // Collect results
+                for (int i = 0; i < array_size; i++) {
+                    if (thread_data_array[i]) {
+                        schemas[i] = thread_data_array[i]->result;
+                        
+                        // Free the individual thread data
+                        free(thread_data_array[i]);
+                    }
+                }
+                
+                // Free the thread data array
+                free(thread_data_array);
+            }
             
-            start_idx = thread_data[i].end_idx;
-            
-            pthread_create(&threads[i], NULL, generate_schema_worker, &thread_data[i]);
+            pthread_mutex_destroy(&result_mutex);
+            thread_pool_destroy(pool);
         }
-        
-        // Wait for all threads to complete
-        for (int i = 0; i < thread_count; i++) {
-            pthread_join(threads[i], NULL);
-        }
-        
-        pthread_mutex_destroy(&merge_mutex);
-        free(threads);
-        free(thread_data);
     }
     
     // Merge all schemas

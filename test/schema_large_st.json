@@ -1,0 +1,40 @@
+{
+	"$schema":	"http://json-schema.org/draft-07/schema#",
+	"type":	"object",
+	"properties":	{
+		"id":	{
+			"type":	"integer"
+		},
+		"name":	{
+			"type":	"string"
+		},
+		"email":	{
+			"type":	"string"
+		},
+		"active":	{
+			"type":	"boolean"
+		},
+		"created":	{
+			"type":	"string"
+		},
+		"profile":	{
+			"type":	"object",
+			"properties":	{
+				"age":	{
+					"type":	"integer"
+				},
+				"location":	{
+					"type":	"string"
+				},
+				"interests":	{
+					"type":	"array",
+					"items":	{
+						"type":	"string"
+					}
+				}
+			},
+			"required":	["age", "location", "interests"]
+		}
+	},
+	"required":	["id", "name", "email", "active", "created", "profile"]
+}

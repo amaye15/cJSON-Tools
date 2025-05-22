@@ -1,0 +1,25 @@
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "active": true,
+    "tags": ["admin", "user"]
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "active": false
+  },
+  {
+    "id": 3,
+    "name": "Bob Johnson",
+    "email": "bob@example.com",
+    "active": true,
+    "department": {
+      "id": 101,
+      "name": "Engineering"
+    }
+  }
+]
