@@ -182,11 +182,11 @@ Output:
 
 ## Performance
 
-The multi-threaded implementation provides significant performance improvements for large batches of JSON objects:
+The multi-threaded implementation is designed for processing large batches of JSON objects, though our benchmarks show interesting results:
 
-- For small files: Single-threaded processing is efficient
-- For large files (10MB+): Multi-threaded processing is up to 40% faster
-- Optimal thread count depends on available CPU cores and file size
+- For small files: Single-threaded processing is generally more efficient
+- For medium files: Multi-threading shows minimal improvements for specific operations
+- For large files: Current implementation shows thread overhead may outweigh benefits
 
 ### Benchmarks
 
@@ -202,18 +202,36 @@ cd test
 
 # Generate visualization charts
 python visualize_benchmarks.py
+
+# Generate comprehensive visualization
+python visualize_comprehensive_benchmarks.py
 ```
 
-Benchmark results are saved to `test/benchmark_results.md` and visualized in `test/benchmark_charts.png`.
+Benchmark results are saved to `test/benchmark_results.md` and `test/comprehensive_benchmark_results.md`, with visualizations in the corresponding PNG files.
 
-#### Sample Benchmark Results
+#### Actual Benchmark Results
 
-- **Small files (< 1MB)**: Multi-threading overhead may outweigh benefits
-- **Medium files (1-10MB)**: Multi-threading provides 10-20% improvement
-- **Large files (10-50MB)**: Multi-threading provides 20-30% improvement
-- **Huge files (50MB+)**: Multi-threading provides 30-40% improvement
+![Benchmark Charts](/test/comprehensive_benchmark_charts.png)
 
-The performance gains are more significant for schema generation than for flattening, as schema generation involves more complex processing.
+Our comprehensive benchmarks revealed:
+
+- **Small files (< 100KB)**: Multi-threading overhead outweighs benefits, with performance similar to or worse than single-threaded processing
+- **Medium files (100KB-1MB)**: Multi-threading provides minimal improvement (0-12.5%) for schema generation
+- **Large files (1MB-10MB)**: Current multi-threaded implementation shows slight performance degradation (-7% to -8%)
+
+Key findings:
+
+1. **Thread Overhead**: For most file sizes, the overhead of creating and managing threads outweighs the benefits of parallel processing.
+
+2. **Optimal Use Case**: Multi-threading appears to be most beneficial for medium-sized files (around 1,000 objects) for schema generation.
+
+3. **Future Optimizations**: The multi-threaded implementation could be improved with:
+   - More efficient work distribution
+   - Thread pooling to reduce creation overhead
+   - Optimized memory usage to reduce cache misses
+   - Adaptive threading that only uses multiple threads when beneficial
+
+For detailed benchmark analysis, see `test/comprehensive_benchmark_results.md`.
 
 ## License
 
