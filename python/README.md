@@ -12,7 +12,7 @@ Python bindings for the JSON Alchemy C library - a high-performance JSON process
 ## Installation
 
 ```bash
-pip install json-alchemy
+pip install aimv2-json-alchemy
 ```
 
 ### Requirements
@@ -33,7 +33,8 @@ import json
 from json_alchemy import flatten_json, flatten_json_batch
 
 # Single object flattening
-nested_json = {
+nested_json_str = '''
+{
     "person": {
         "name": "John",
         "age": 30,
@@ -43,9 +44,10 @@ nested_json = {
         }
     }
 }
+'''
 
-flat_json = flatten_json(nested_json)
-print(json.dumps(flat_json, indent=2))
+flat_json = flatten_json(nested_json_str)
+print(flat_json)
 # Output:
 # {
 #   "person.name": "John",
@@ -56,18 +58,18 @@ print(json.dumps(flat_json, indent=2))
 
 # Batch processing
 json_objects = [
-    {"a": {"b": 1}},
-    {"c": {"d": 2}}
+    '{"a": {"b": 1}}',
+    '{"c": {"d": 2}}'
 ]
 
 # Single-threaded batch processing
 flattened_batch = flatten_json_batch(json_objects)
 
 # Multi-threaded batch processing (auto thread count)
-flattened_batch_mt = flatten_json_batch(json_objects, multi_threaded=True)
+flattened_batch_mt = flatten_json_batch(json_objects, use_threads=True)
 
 # Multi-threaded batch processing (specific thread count)
-flattened_batch_mt_spec = flatten_json_batch(json_objects, multi_threaded=True, thread_count=4)
+flattened_batch_mt_spec = flatten_json_batch(json_objects, use_threads=True, num_threads=4)
 ```
 
 ### JSON Schema Generation
@@ -76,19 +78,21 @@ flattened_batch_mt_spec = flatten_json_batch(json_objects, multi_threaded=True, 
 from json_alchemy import generate_schema, generate_schema_batch
 
 # Single object schema generation
-json_obj = {
+json_obj_str = '''
+{
     "name": "John",
     "age": 30,
-    "is_active": True,
+    "is_active": true,
     "scores": [85, 90, 78],
     "address": {
         "city": "New York",
         "zip": "10001"
     }
 }
+'''
 
-schema = generate_schema(json_obj)
-print(json.dumps(schema, indent=2))
+schema = generate_schema(json_obj_str)
+print(schema)
 # Output:
 # {
 #   "type": "object",
@@ -112,18 +116,18 @@ print(json.dumps(schema, indent=2))
 
 # Batch processing
 json_objects = [
-    {"a": 1, "b": "string"},
-    {"a": 2, "c": True}
+    '{"a": 1, "b": "string"}',
+    '{"a": 2, "c": true}'
 ]
 
 # Single-threaded batch processing
 schema_batch = generate_schema_batch(json_objects)
 
 # Multi-threaded batch processing (auto thread count)
-schema_batch_mt = generate_schema_batch(json_objects, multi_threaded=True)
+schema_batch_mt = generate_schema_batch(json_objects, use_threads=True)
 
 # Multi-threaded batch processing (specific thread count)
-schema_batch_mt_spec = generate_schema_batch(json_objects, multi_threaded=True, thread_count=4)
+schema_batch_mt_spec = generate_schema_batch(json_objects, use_threads=True, num_threads=4)
 ```
 
 ## Performance Considerations
@@ -143,8 +147,6 @@ Based on our benchmarks:
    - The optimal batch size for schema generation is around 10-100 objects.
 
 ## Building from Source
-
-First, ensure you have the cJSON library installed (see [Requirements](#requirements) above).
 
 ```bash
 # Clone the repository
