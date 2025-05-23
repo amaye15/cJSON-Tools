@@ -23,7 +23,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='json_alchemy',
+    name='aimv2-json-alchemy',
     version='1.3.1',
     description='Python bindings for the JSON Alchemy C library',
     long_description=long_description,

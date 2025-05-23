@@ -1,8 +1,3 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
-
-# The cJSON library is required for building this package
-# On Debian/Ubuntu: sudo apt-get install libcjson-dev
-# On macOS: brew install cjson
-# On CentOS/RHEL: sudo yum install libcjson-devel
