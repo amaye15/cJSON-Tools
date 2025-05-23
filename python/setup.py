@@ -1,5 +1,23 @@
 from setuptools import setup, Extension, find_packages
 import os
+import sys
+import platform
+
+# Platform-specific configurations
+libraries = []
+extra_compile_args = []
+extra_link_args = []
+
+# Check if we're on Windows
+is_windows = platform.system() == 'Windows'
+
+if not is_windows:
+    # Unix-like systems (Linux, macOS)
+    libraries.append('pthread')
+    extra_compile_args = ['-std=c99', '-Wall', '-Wextra']
+else:
+    # Windows-specific configuration
+    extra_compile_args = ['/std:c11']  # MSVC equivalent of C99
 
 # Define the extension module
 json_alchemy_module = Extension(
@@ -15,8 +33,9 @@ json_alchemy_module = Extension(
     include_dirs=[
         'json_alchemy/include',
     ],
-    libraries=['pthread'],  # Removed cjson as we're including it directly
-    extra_compile_args=['-std=c99', '-Wall', '-Wextra'],
+    libraries=libraries,
+    extra_compile_args=extra_compile_args,
+    extra_link_args=extra_link_args,
 )
 
 with open('README.md', 'r', encoding='utf-8') as f:
@@ -24,7 +43,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='aimv2-json-alchemy',
-    version='1.3.2',
+    version='1.3.3',
     description='Python bindings for the JSON Alchemy C library',
     long_description=long_description,
     long_description_content_type='text/markdown',

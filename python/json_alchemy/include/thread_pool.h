@@ -1,8 +1,30 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
-#include <pthread.h>
 #include <stdbool.h>
+
+#ifdef _WIN32
+    // Windows threading
+    #include <windows.h>
+    #include <process.h>
+    
+    typedef HANDLE thread_t;
+    typedef CRITICAL_SECTION mutex_t;
+    typedef CONDITION_VARIABLE cond_t;
+    
+    #define THREAD_RETURN_TYPE unsigned int WINAPI
+    #define THREAD_RETURN_VALUE 0
+#else
+    // POSIX threading
+    #include <pthread.h>
+    
+    typedef pthread_t thread_t;
+    typedef pthread_mutex_t mutex_t;
+    typedef pthread_cond_t cond_t;
+    
+    #define THREAD_RETURN_TYPE void*
+    #define THREAD_RETURN_VALUE NULL
+#endif
 
 /**
  * Task structure for thread pool
@@ -17,15 +39,15 @@ typedef struct Task {
  * Thread pool structure
  */
 typedef struct {
-    pthread_t* threads;           // Array of worker threads
-    Task* task_queue;             // Queue of tasks to be executed
-    Task* task_queue_tail;        // Tail of the task queue for faster enqueuing
-    int num_threads;              // Number of threads in the pool
-    int active_threads;           // Number of currently active threads
-    bool shutdown;                // Flag to indicate shutdown
-    pthread_mutex_t queue_mutex;  // Mutex to protect the task queue
-    pthread_cond_t queue_cond;    // Condition variable for task queue
-    pthread_cond_t idle_cond;     // Condition variable for idle threads
+    thread_t* threads;        // Array of worker threads
+    Task* task_queue;         // Queue of tasks to be executed
+    Task* task_queue_tail;    // Tail of the task queue for faster enqueuing
+    int num_threads;          // Number of threads in the pool
+    int active_threads;       // Number of currently active threads
+    bool shutdown;            // Flag to indicate shutdown
+    mutex_t queue_mutex;      // Mutex to protect the task queue
+    cond_t queue_cond;        // Condition variable for task queue
+    cond_t idle_cond;         // Condition variable for idle threads
 } ThreadPool;
 
 /**

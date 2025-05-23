@@ -5,7 +5,7 @@
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
 
-#define MODULE_VERSION "1.3.2"
+#define MODULE_VERSION "1.3.3"
 
 /**
  * Flatten a JSON string
