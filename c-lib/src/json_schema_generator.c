@@ -324,7 +324,9 @@ SchemaNode* merge_schema_nodes(SchemaNode* node1, SchemaNode* node2) {
                 } else {
                     // Property only exists in first object
                     // Mark as not required since it's missing in the second object
-                    SchemaNode* prop_copy = analyze_json_value(cJSON_CreateNull());
+                    cJSON* null_json = cJSON_CreateNull();
+                    SchemaNode* prop_copy = analyze_json_value(null_json);
+                    cJSON_Delete(null_json);
                     prop_copy->type = prop1->schema->type;
                     prop_copy->nullable = 1;
                     add_property(merged, prop1->name, prop_copy, 0);
@@ -338,7 +340,9 @@ SchemaNode* merge_schema_nodes(SchemaNode* node1, SchemaNode* node2) {
                 if (!find_property(node1, prop2->name)) {
                     // Property only exists in second object
                     // Mark as not required since it's missing in the first object
-                    SchemaNode* prop_copy = analyze_json_value(cJSON_CreateNull());
+                    cJSON* null_json = cJSON_CreateNull();
+                    SchemaNode* prop_copy = analyze_json_value(null_json);
+                    cJSON_Delete(null_json);
                     prop_copy->type = prop2->schema->type;
                     prop_copy->nullable = 1;
                     add_property(merged, prop2->name, prop_copy, 0);
