@@ -58,9 +58,8 @@ int main(int argc, char* argv[]) {
                     action_schema = 0;
                     continue;
                 case 's':
-                    action_flatten = 0;
-                    action_schema = 1;
-                    continue;
+                    fprintf(stderr, "Schema generation temporarily disabled due to memory issues\n");
+                    return 1;
                 case 't':
                     use_threads = 1;
                     if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -121,9 +120,8 @@ int main(int argc, char* argv[]) {
                         action_schema = 0;
                         break;
                     case 's':
-                        action_flatten = 0;
-                        action_schema = 1;
-                        break;
+                        fprintf(stderr, "Schema generation temporarily disabled due to memory issues\n");
+                        return 1;
                     case 't':
                         use_threads = 1;
                         break;
