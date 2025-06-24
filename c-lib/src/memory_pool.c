@@ -6,8 +6,11 @@
 #ifdef __unix__
 #include <sys/mman.h>
 #include <unistd.h>
-#ifndef MAP_ANONYMOUS
+// Handle different MAP_ANONYMOUS definitions across platforms
+#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
 #define MAP_ANONYMOUS MAP_ANON
+#elif !defined(MAP_ANONYMOUS)
+#define MAP_ANONYMOUS 0x20
 #endif
 #endif
 
