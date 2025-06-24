@@ -172,3 +172,49 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# C build artifacts
+bin/
+obj/
+*.o
+*.dylib
+*.dll
+*.exe
+
+# Test artifacts
+c-lib/tests/temp_test_data/
+c-lib/tests/*.json
+c-lib/tests/*.log
+c-lib/tests/benchmark_results.md
+c-lib/tests/comprehensive_benchmark_*.png
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation build
+docs/c-api/html/
+docs/c-api/latex/
+docs/python-api/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Profiling data
+*.prof
+*.stats
+
+# Backup files
+*.bak
+*.backup
