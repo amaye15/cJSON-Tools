@@ -1,136 +1,280 @@
-# JSON Alchemy
+# cJSON-Tools
 
-A high-performance C toolkit for transforming and analyzing JSON data. JSON Alchemy provides powerful tools for:
+A high-performance C toolkit for transforming and analyzing JSON data with Python bindings. cJSON-Tools provides powerful tools for:
 
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
 2. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
 3. **Multi-threading Support**: Optimized performance for processing large JSON datasets
-4. **Python Bindings**: Use the library directly from Python with native performance
+4. **Python Bindings**: Use the library directly from Python with native C performance
 
-## Features
+## 🚀 Quick Start
 
-### JSON Flattening
-- Flattens nested JSON objects using dot notation (e.g., `address.city`)
-- Flattens arrays using bracket notation (e.g., `skills[0]`)
-- Preserves primitive values (strings, numbers, booleans, null)
-- Handles deeply nested structures
-- Supports both single objects and arrays of objects (batches)
-
-### JSON Schema Generation
-- Generates JSON Schema (Draft-07) from one or more JSON objects
-- Handles nested objects and arrays
-- Detects required and optional properties
-- Supports null values and mixed types
-- Identifies nullable fields
-
-### Performance Optimizations
-- Multi-threaded processing for large datasets
-- Automatic thread count detection based on available CPU cores
-- Optimized memory usage for large files
-- Thread pooling to reduce thread creation overhead
-- Adaptive threading that only uses multiple threads when beneficial
-
-### Python Bindings
-- Use the library directly from Python
-- Native C performance with Python convenience
-- Support for all core features (flattening, schema generation, multi-threading)
-- Simple, Pythonic API
-
-## Requirements
-
-### C Library
-- C compiler (gcc recommended)
-- cJSON library (`libcjson-dev` package)
-- POSIX threads library (pthread)
-
-### Python Bindings
-- Python 3.6+
-- C compiler
-- cJSON library (`libcjson-dev` package)
-- Python development headers (`python3-dev` package)
-
-## Building
-
-### C Library
-
+### Python (Recommended)
 ```bash
-# Clone the repository
-git clone https://github.com/amaye15/AIMv2-rs.git
-cd AIMv2-rs
+pip install cjson-tools
+```
 
-# Build the project
+```python
+import cjson_tools
+import json
+
+# Flatten nested JSON
+data = {"user": {"name": "John", "address": {"city": "NYC"}}}
+flattened = cjson_tools.flatten_json(json.dumps(data))
+print(flattened)  # {"user.name": "John", "user.address.city": "NYC"}
+
+# Generate JSON schema
+schema = cjson_tools.generate_schema(json.dumps(data))
+print(schema)
+```
+
+### C Library
+```bash
+git clone https://github.com/amaye15/cJSON-Tools.git
+cd cJSON-Tools
+make
+./bin/json_tools -f input.json
+```
+
+## 📁 Project Structure
+
+- `c-lib/` - C library source code, headers, and tests
+  - `src/` - C source files with optimized algorithms
+  - `include/` - C header files
+  - `tests/` - Dynamic test suite and benchmarks
+- `py-lib/` - Python bindings and related files
+  - `cjson_tools/` - Python package source
+  - `tests/` - Python unit tests
+  - `examples/` - Python usage examples
+  - `benchmarks/` - Performance testing scripts
+
+## ✨ Features
+
+### 🔄 JSON Flattening
+- **Dot Notation**: Nested objects → `address.city`
+- **Array Indexing**: Arrays → `skills[0]`, `skills[1]`
+- **Type Preservation**: Maintains strings, numbers, booleans, null
+- **Deep Nesting**: Handles arbitrarily nested structures
+- **Batch Processing**: Process thousands of objects efficiently
+
+### 📋 JSON Schema Generation
+- **JSON Schema Draft-07**: Standards-compliant schema generation
+- **Smart Type Detection**: Handles nested objects, arrays, mixed types
+- **Required Properties**: Automatically detects required vs optional fields
+- **Nullable Support**: Identifies fields that can be null
+- **Array Analysis**: Intelligent sampling for large arrays
+
+### ⚡ Performance Optimizations
+- **Multi-threading**: Parallel processing for large datasets
+- **Memory Pools**: Optimized memory allocation for small strings
+- **Branch Prediction**: Compiler hints for better CPU performance
+- **Adaptive Threading**: Automatically chooses optimal thread count
+- **SIMD Optimizations**: Vectorized operations where possible
+- **Zero-Copy**: Minimal memory copying for better performance
+
+### 🐍 Python Integration
+- **Native Performance**: C-speed with Python convenience
+- **Pythonic API**: Simple, intuitive function calls
+- **Type Safety**: Proper error handling and validation
+- **Memory Management**: Automatic cleanup, no memory leaks
+
+## 📋 Requirements
+
+### Python Package (Recommended)
+- **Python**: 3.6+ (3.8+ recommended)
+- **Compiler**: Automatically handled by pip
+- **Platform**: Linux, macOS, Windows
+
+### C Library Development
+- **Compiler**: GCC 7+ or Clang 6+ with C99 support
+- **Dependencies**: Integrated cJSON (no external dependencies)
+- **Threading**: POSIX threads (pthread)
+- **Build Tools**: Make, standard build utilities
+
+### Platform-Specific Setup
+
+#### Ubuntu/Debian
+```bash
+sudo apt-get update
+sudo apt-get install build-essential python3-dev
+```
+
+#### macOS
+```bash
+# Install Xcode Command Line Tools
+xcode-select --install
+# Or install via Homebrew
+brew install python
+```
+
+#### Windows
+- Install Visual Studio Build Tools or Visual Studio Community
+- Python will automatically detect and use the compiler
+
+## 🛠️ Installation & Setup
+
+### Option 1: Python Package (Recommended)
+
+#### From PyPI
+```bash
+pip install cjson-tools
+```
+
+#### From Source
+```bash
+git clone https://github.com/amaye15/cJSON-Tools.git
+cd cJSON-Tools/py-lib
+pip install -e .  # Development mode
+# or
+pip install .     # Regular installation
+```
+
+### Option 2: C Library Development
+
+#### Quick Build
+```bash
+git clone https://github.com/amaye15/cJSON-Tools.git
+cd cJSON-Tools
+make                    # Build optimized version
+make debug             # Build debug version
+```
+
+#### Advanced Build Options
+```bash
+# Clean build
+make clean && make
+
+# Install system-wide (optional)
+sudo make install
+
+# Build with specific optimizations
+CFLAGS="-O3 -march=native" make
+
+# Build tests
+cd c-lib/tests
+make
+```
+
+### Option 3: Development Setup
+
+#### Full Development Environment
+```bash
+# Clone repository
+git clone https://github.com/amaye15/cJSON-Tools.git
+cd cJSON-Tools
+
+# Build C library
 make
 
-# Install (optional)
-sudo make install
-```
-
-### Python Bindings
-
-```bash
-# Clone the repository
-git clone https://github.com/amaye15/AIMv2-rs.git
-cd AIMv2-rs/python
-
-# Install the package
-pip install .
-
-# Or install in development mode
+# Setup Python development
+cd py-lib
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
+
+# Run tests
+python3 tests/test_cjson_tools.py
+cd ../c-lib/tests
+./run_dynamic_tests.sh
 ```
 
-## Usage
+## 🚀 Usage Guide
 
+### Python API (Recommended)
+
+#### Basic Operations
+```python
+import cjson_tools
+import json
+
+# Single object flattening
+data = {"user": {"name": "John", "details": {"age": 30, "city": "NYC"}}}
+flattened = cjson_tools.flatten_json(json.dumps(data))
+result = json.loads(flattened)
+print(result)  # {"user.name": "John", "user.details.age": 30, "user.details.city": "NYC"}
+
+# Schema generation
+schema = cjson_tools.generate_schema(json.dumps(data))
+schema_obj = json.loads(schema)
+print(schema_obj["properties"])
 ```
-JSON Tools - A unified JSON processing utility
 
-Usage: json_tools [options] [input_file]
+#### Batch Processing
+```python
+# Process multiple objects efficiently
+objects = [
+    '{"id": 1, "user": {"name": "Alice"}}',
+    '{"id": 2, "user": {"name": "Bob", "age": 25}}',
+    '{"id": 3, "user": {"name": "Charlie", "location": {"city": "SF"}}}'
+]
 
-Options:
-  -h, --help                 Show this help message
-  -f, --flatten              Flatten nested JSON (default action)
-  -s, --schema               Generate JSON schema
-  -t, --threads [num]        Use multi-threading with specified number of threads
-                             (default: auto-detect optimal thread count)
-  -p, --pretty               Pretty-print output (default: compact)
-  -o, --output <file>        Write output to file instead of stdout
+# Flatten all objects
+flattened_batch = cjson_tools.flatten_json_batch(objects)
+for flat in flattened_batch:
+    print(json.loads(flat))
 
-If no input file is specified, input is read from stdin.
-Use '-' as input_file to explicitly read from stdin.
+# Generate unified schema from all objects
+unified_schema = cjson_tools.generate_schema_batch(objects)
+print(json.loads(unified_schema))
 ```
 
-## Examples
+#### Performance Optimization
+```python
+# For large datasets, enable multi-threading
+large_dataset = [json.dumps({"data": i, "nested": {"value": i*2}}) for i in range(10000)]
 
-### Flatten a JSON object
+# Auto-detect optimal thread count
+result = cjson_tools.flatten_json_batch(large_dataset, use_threads=True)
+
+# Specify thread count
+result = cjson_tools.flatten_json_batch(large_dataset, use_threads=True, num_threads=4)
+
+# Single-threaded for comparison
+result = cjson_tools.flatten_json_batch(large_dataset, use_threads=False)
+```
+
+### C Command Line Interface
 
 ```bash
-# From a file
+# JSON Tools - High-performance JSON processing utility
+# Usage: json_tools [options] [input_file]
+
+# Options:
+#   -h, --help                 Show help message
+#   -f, --flatten              Flatten nested JSON (default)
+#   -s, --schema               Generate JSON schema
+#   -t, --threads [num]        Use multi-threading (auto-detect optimal count)
+#   -p, --pretty               Pretty-print output
+#   -o, --output <file>        Write to file instead of stdout
+```
+
+### C CLI Examples
+
+#### JSON Flattening
+```bash
+# From file
 ./bin/json_tools -f input.json
 
-# From stdin
-cat input.json | ./bin/json_tools -f -
+# From stdin with pretty printing
+cat input.json | ./bin/json_tools -f -p
 
-# With multi-threading
+# Multi-threaded processing
 ./bin/json_tools -f -t 4 large_batch.json
 
-# Write to file
+# Save to file
 ./bin/json_tools -f -o flattened.json input.json
 ```
 
-### Generate a JSON schema
-
+#### Schema Generation
 ```bash
-# From a file
+# Generate schema from file
 ./bin/json_tools -s input.json
 
-# From stdin
-cat input.json | ./bin/json_tools -s -
-
-# With multi-threading
+# Multi-threaded schema generation
 ./bin/json_tools -s -t 4 large_batch.json
 
-# Write to file
-./bin/json_tools -s -o schema.json input.json
+# Pretty-printed schema to file
+./bin/json_tools -s -p -o schema.json input.json
 ```
 
 ## Example Input/Output
@@ -226,24 +370,25 @@ The project includes comprehensive benchmarking tools to measure performance:
 
 ```bash
 # Run mini benchmarks (quick demonstration)
-cd test
+cd c-lib/tests
 ./run_mini_benchmarks.sh
 
 # Run full benchmarks (may take several minutes)
 ./run_benchmarks.sh
 
 # Generate visualization charts
+cd ../../py-lib/benchmarks
 python visualize_benchmarks.py
 
 # Generate comprehensive visualization
 python visualize_comprehensive_benchmarks.py
 ```
 
-Benchmark results are saved to `test/benchmark_results.md` and `test/comprehensive_benchmark_results.md`, with visualizations in the corresponding PNG files.
+Benchmark results are saved to `c-lib/tests/benchmark_results.md` and `c-lib/tests/comprehensive_benchmark_results.md`, with visualizations in the corresponding PNG files.
 
 #### Actual Benchmark Results
 
-![Benchmark Charts](/test/comprehensive_benchmark_charts.png)
+![Benchmark Charts](/c-lib/tests/comprehensive_benchmark_charts.png)
 
 Our comprehensive benchmarks revealed:
 
@@ -263,16 +408,16 @@ Key findings:
    - Optimized memory usage to reduce cache misses
    - Adaptive threading that only uses multiple threads when beneficial
 
-For detailed benchmark analysis, see `test/comprehensive_benchmark_results.md`.
+For detailed benchmark analysis, see `c-lib/tests/comprehensive_benchmark_results.md`.
 
 ## Python Usage
 
-The Python bindings provide a simple, Pythonic interface to the JSON Alchemy library.
+The Python bindings provide a simple, Pythonic interface to the cJSON-Tools library.
 
 ### Installation
 
 ```bash
-pip install json-alchemy
+pip install cjson-tools
 ```
 
 ### Examples
@@ -281,7 +426,7 @@ pip install json-alchemy
 
 ```python
 import json
-from json_alchemy import flatten_json
+from cjson_tools import flatten_json
 
 # Flatten a single JSON object
 nested_json = '''
@@ -306,7 +451,7 @@ print(json.loads(flattened))
 #### Batch Processing
 
 ```python
-from json_alchemy import flatten_json_batch
+from cjson_tools import flatten_json_batch
 
 # Process multiple JSON objects at once
 json_objects = [
@@ -322,7 +467,7 @@ print(flattened_batch)
 #### Schema Generation
 
 ```python
-from json_alchemy import generate_schema
+from cjson_tools import generate_schema
 
 # Generate a schema from a JSON object
 json_obj = '''
@@ -342,7 +487,7 @@ print(json.loads(schema))
 #### Multi-threading
 
 ```python
-from json_alchemy import flatten_json_batch, generate_schema_batch
+from cjson_tools import flatten_json_batch, generate_schema_batch
 
 # Enable multi-threading with a specific number of threads
 flattened = flatten_json_batch(large_json_list, use_threads=True, num_threads=4)
@@ -351,8 +496,240 @@ flattened = flatten_json_batch(large_json_list, use_threads=True, num_threads=4)
 schema = generate_schema_batch(large_json_list, use_threads=True)
 ```
 
-For more examples, see the `python/examples` directory.
+For more examples, see the `py-lib/examples` directory.
 
-## License
+## 🧪 Testing
+
+### Python Tests
+```bash
+cd py-lib
+
+# Run unit tests
+python3 tests/test_cjson_tools.py
+
+# Run example script
+python3 examples/example.py
+
+# Performance testing
+python3 -c "
+import cjson_tools
+import json
+import time
+
+# Quick performance test
+data = [json.dumps({'id': i, 'nested': {'value': i*2}}) for i in range(1000)]
+start = time.time()
+result = cjson_tools.flatten_json_batch(data, use_threads=True)
+print(f'Processed {len(data)} objects in {time.time()-start:.3f}s')
+"
+```
+
+### C Library Tests
+```bash
+cd c-lib/tests
+
+# Run comprehensive dynamic tests
+./run_dynamic_tests.sh
+
+# Run specific test sizes
+./run_dynamic_tests.sh --sizes "100,1000,10000"
+
+# Build and run manual tests
+make
+./generate_test_data test.json 1000 3
+../../bin/json_tools -f test.json
+```
+
+### Benchmarking
+```bash
+# Python benchmarks
+cd py-lib/benchmarks
+python3 benchmark.py --quick
+
+# C library benchmarks
+cd c-lib/tests
+./run_benchmarks.sh
+
+# Memory profiling (requires valgrind)
+valgrind --tool=memcheck --leak-check=full ../../bin/json_tools -f large_test.json
+```
+
+## 📦 Publishing & Distribution
+
+### Python Package Publishing
+
+#### Setup for PyPI
+```bash
+cd py-lib
+
+# Install build tools
+pip install build twine
+
+# Update version in setup.py
+# Edit setup.py: version='1.4.0'
+
+# Build package
+python3 -m build
+
+# Test upload to TestPyPI
+twine upload --repository testpypi dist/*
+
+# Upload to PyPI
+twine upload dist/*
+```
+
+#### Automated Publishing (GitHub Actions)
+```yaml
+# .github/workflows/publish.yml
+name: Publish to PyPI
+on:
+  release:
+    types: [published]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    - name: Build and publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        cd py-lib
+        pip install build twine
+        python -m build
+        twine upload dist/*
+```
+
+### C Library Distribution
+
+#### Creating Release Packages
+```bash
+# Create source distribution
+make clean
+tar -czf cjson-tools-1.4.0.tar.gz \
+  --exclude='.git*' \
+  --exclude='*.o' \
+  --exclude='bin/*' \
+  --exclude='py-lib/build' \
+  --exclude='py-lib/*.egg-info' \
+  .
+
+# Create binary distribution (Linux)
+make clean && make
+mkdir -p cjson-tools-1.4.0-linux-x64/{bin,lib,include}
+cp bin/json_tools cjson-tools-1.4.0-linux-x64/bin/
+cp c-lib/include/*.h cjson-tools-1.4.0-linux-x64/include/
+tar -czf cjson-tools-1.4.0-linux-x64.tar.gz cjson-tools-1.4.0-linux-x64/
+```
+
+#### Package Managers
+
+##### Homebrew (macOS)
+```ruby
+# Formula for Homebrew
+class CjsonTools < Formula
+  desc "High-performance JSON processing toolkit"
+  homepage "https://github.com/amaye15/cJSON-Tools"
+  url "https://github.com/amaye15/cJSON-Tools/archive/v1.4.0.tar.gz"
+  sha256 "..."
+
+  def install
+    system "make"
+    bin.install "bin/json_tools"
+  end
+
+  test do
+    system "#{bin}/json_tools", "--help"
+  end
+end
+```
+
+##### APT Repository (Ubuntu/Debian)
+```bash
+# Build .deb package
+mkdir -p cjson-tools-1.4.0/DEBIAN
+cat > cjson-tools-1.4.0/DEBIAN/control << EOF
+Package: cjson-tools
+Version: 1.4.0
+Architecture: amd64
+Maintainer: Your Name <email@example.com>
+Description: High-performance JSON processing toolkit
+EOF
+
+mkdir -p cjson-tools-1.4.0/usr/bin
+cp bin/json_tools cjson-tools-1.4.0/usr/bin/
+dpkg-deb --build cjson-tools-1.4.0
+```
+
+## 🔧 Development & Contributing
+
+### Development Setup
+```bash
+# Full development environment
+git clone https://github.com/amaye15/cJSON-Tools.git
+cd cJSON-Tools
+
+# Setup pre-commit hooks
+pip install pre-commit
+pre-commit install
+
+# Build everything
+make clean && make
+cd py-lib && pip install -e . && cd ..
+
+# Run all tests
+cd c-lib/tests && ./run_dynamic_tests.sh && cd ../..
+cd py-lib && python3 tests/test_cjson_tools.py && cd ..
+```
+
+### Code Quality
+```bash
+# C code formatting (if clang-format available)
+find c-lib -name "*.c" -o -name "*.h" | xargs clang-format -i
+
+# Python code formatting
+cd py-lib
+pip install black isort flake8
+black .
+isort .
+flake8 .
+```
+
+### Performance Profiling
+```bash
+# Profile C library
+cd c-lib/tests
+perf record ../../bin/json_tools -f large_test.json
+perf report
+
+# Profile Python extension
+cd py-lib
+python3 -m cProfile -o profile.stats examples/example.py
+python3 -c "import pstats; pstats.Stats('profile.stats').sort_stats('cumulative').print_stats(20)"
+```
+
+## 📄 License
 
 This project is open source and available under the MIT License.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+### Areas for Contribution
+- Performance optimizations
+- Additional output formats
+- Language bindings (Rust, Go, etc.)
+- Documentation improvements
+- Bug fixes and testing
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/amaye15/cJSON-Tools/issues)
+- **Documentation**: See `py-lib/examples/` and `c-lib/tests/`
+- **Performance**: Run benchmarks with `./run_dynamic_tests.sh`
