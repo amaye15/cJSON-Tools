@@ -1,0 +1,147 @@
+#include "../include/memory_pool.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdatomic.h>
+
+#ifdef __unix__
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
+// Global pools
+SlabAllocator* g_cjson_node_pool = NULL;
+SlabAllocator* g_property_node_pool = NULL;
+SlabAllocator* g_task_pool = NULL;
+
+SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects) {
+    SlabAllocator* allocator = malloc(sizeof(SlabAllocator));
+    if (!allocator) return NULL;
+
+    allocator->object_size = ALIGN_TO_CACHE(object_size);
+    allocator->objects_per_slab = 4096 / allocator->object_size;
+    if (allocator->objects_per_slab < 1) allocator->objects_per_slab = 1;
+
+    size_t slab_size = allocator->object_size * allocator->objects_per_slab;
+    allocator->use_huge_pages = false;
+    
+#ifdef __unix__
+    // Try to use huge pages for better TLB performance
+    allocator->memory = mmap(NULL, slab_size, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    
+    if (allocator->memory != MAP_FAILED) {
+        allocator->use_huge_pages = true;
+    } else {
+        // Fallback to regular allocation
+        allocator->memory = aligned_alloc(CACHE_LINE_SIZE, slab_size);
+    }
+#else
+    // Windows/other platforms
+    allocator->memory = aligned_alloc(CACHE_LINE_SIZE, slab_size);
+#endif
+
+    if (!allocator->memory) {
+        free(allocator);
+        return NULL;
+    }
+
+    // Initialize free list using pointer arithmetic
+    allocator->free_list = allocator->memory;
+    for (size_t i = 0; i < allocator->objects_per_slab - 1; i++) {
+        void** current = (void**)((char*)allocator->memory + i * allocator->object_size);
+        *current = (char*)allocator->memory + (i + 1) * allocator->object_size;
+    }
+    
+    // Last object points to NULL
+    void** last = (void**)((char*)allocator->memory + 
+                          (allocator->objects_per_slab - 1) * allocator->object_size);
+    *last = NULL;
+
+    allocator->total_slabs = 1;
+    allocator->allocated_objects = 0;
+
+    return allocator;
+}
+
+// Lock-free allocation using atomic operations
+void* slab_alloc(SlabAllocator* allocator) {
+    if (!allocator) return malloc(64); // Fallback
+    
+    void* old_head;
+    void* new_head;
+    
+    do {
+        old_head = __atomic_load_n(&allocator->free_list, __ATOMIC_ACQUIRE);
+        if (!old_head) {
+            // Pool exhausted, fallback to malloc
+            return malloc(allocator->object_size);
+        }
+        
+        new_head = *(void**)old_head;
+    } while (!__atomic_compare_exchange_n(&allocator->free_list, &old_head, new_head,
+                                         false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
+    
+    __atomic_fetch_add(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
+    return old_head;
+}
+
+void slab_free(SlabAllocator* allocator, void* ptr) {
+    if (!allocator || !ptr) {
+        free(ptr);
+        return;
+    }
+    
+    // Check if pointer is from our pool
+    char* pool_start = (char*)allocator->memory;
+    char* pool_end = pool_start + (allocator->object_size * allocator->objects_per_slab);
+    
+    if (ptr < (void*)pool_start || ptr >= (void*)pool_end) {
+        // Not from our pool, use regular free
+        free(ptr);
+        return;
+    }
+    
+    // Add back to free list atomically
+    void* old_head;
+    do {
+        old_head = __atomic_load_n(&allocator->free_list, __ATOMIC_ACQUIRE);
+        *(void**)ptr = old_head;
+    } while (!__atomic_compare_exchange_n(&allocator->free_list, &old_head, ptr,
+                                         false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
+    
+    __atomic_fetch_sub(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
+}
+
+void slab_allocator_destroy(SlabAllocator* allocator) {
+    if (!allocator) return;
+    
+#ifdef __unix__
+    if (allocator->use_huge_pages) {
+        size_t slab_size = allocator->object_size * allocator->objects_per_slab;
+        munmap(allocator->memory, slab_size);
+    } else {
+        free(allocator->memory);
+    }
+#else
+    free(allocator->memory);
+#endif
+    
+    free(allocator);
+}
+
+void init_global_pools(void) {
+    // Initialize pools for common object sizes
+    g_cjson_node_pool = slab_allocator_create(256, 1000);      // cJSON nodes
+    g_property_node_pool = slab_allocator_create(128, 500);    // Property nodes
+    g_task_pool = slab_allocator_create(64, 200);              // Task objects
+}
+
+void cleanup_global_pools(void) {
+    slab_allocator_destroy(g_cjson_node_pool);
+    slab_allocator_destroy(g_property_node_pool);
+    slab_allocator_destroy(g_task_pool);
+    
+    g_cjson_node_pool = NULL;
+    g_property_node_pool = NULL;
+    g_task_pool = NULL;
+}

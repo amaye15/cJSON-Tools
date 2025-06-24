@@ -1,6 +1,9 @@
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
 #include "../include/thread_pool.h"
+#include "../include/memory_pool.h"
+#include "../include/string_view.h"
+#include "../include/compiler_hints.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +17,7 @@
 #define INITIAL_REQUIRED_CAPACITY 8 // Initial capacity for required properties
 #define SCHEMA_CACHE_SIZE 128       // Cache for common schema patterns
 #define MAX_ARRAY_SAMPLE_SIZE 50    // Maximum array items to sample for type inference
+#define HASH_TABLE_SIZE 64          // Hash table size for property lookup
 
 // Schema node types
 typedef enum {
@@ -55,6 +59,34 @@ typedef struct PropertyNode {
     struct PropertyNode* next;
 } PropertyNode;
 
+// Hash table for O(1) property lookup
+typedef struct PropertyHash {
+    PropertyNode* buckets[HASH_TABLE_SIZE];
+} PropertyHash;
+
+// Hash function for property names
+static unsigned int hash_string(const char* str) {
+    unsigned int hash = 5381;
+    int c;
+    while ((c = *str++)) {
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash % HASH_TABLE_SIZE;
+}
+
+// Fast property lookup using hash table
+static PropertyNode* find_property_fast(PropertyHash* hash, const char* name) {
+    unsigned int bucket = hash_string(name);
+    PropertyNode* prop = hash->buckets[bucket];
+    while (prop) {
+        if (strcmp(prop->name, name) == 0) {
+            return prop;
+        }
+        prop = prop->next;
+    }
+    return NULL;
+}
+
 // Thread data structure
 typedef struct {
     cJSON* object;
@@ -75,10 +107,14 @@ SchemaNode* create_schema_node(SchemaType type) {
     return node;
 }
 
-// Add a property to a schema node with optimized memory management
-void add_property(SchemaNode* node, const char* name, SchemaNode* property_schema, int required) {
-    PropertyNode* prop = (PropertyNode*)malloc(sizeof(PropertyNode));
-    if (__builtin_expect(!prop, 0)) return;
+// Cache-optimized property addition with memory pooling
+HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* property_schema, int required) {
+    // Use memory pool for property nodes
+    PropertyNode* prop = g_property_node_pool ? POOL_ALLOC(g_property_node_pool) : malloc(sizeof(PropertyNode));
+    if (UNLIKELY(!prop)) return;
+
+    // Use string view for faster string operations
+    StringView name_view = make_string_view_cstr(name);
 
     prop->name = my_strdup(name);
     prop->schema = property_schema;
@@ -88,10 +124,10 @@ void add_property(SchemaNode* node, const char* name, SchemaNode* property_schem
 
     // Add to required properties list if required
     if (required) {
-        if (__builtin_expect(node->required_count >= node->required_capacity, 0)) {
+        if (UNLIKELY(node->required_count >= node->required_capacity)) {
             int new_capacity = node->required_capacity == 0 ? INITIAL_REQUIRED_CAPACITY : node->required_capacity * 2;
             char** new_props = (char**)realloc(node->required_props, new_capacity * sizeof(char*));
-            if (__builtin_expect(!new_props, 0)) return;
+            if (UNLIKELY(!new_props)) return;
 
             node->required_props = new_props;
             node->required_capacity = new_capacity;

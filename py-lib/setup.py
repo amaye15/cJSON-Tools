@@ -12,12 +12,31 @@ extra_link_args = []
 is_windows = platform.system() == 'Windows'
 
 if not is_windows:
-    # Unix-like systems (Linux, macOS)
+    # Unix-like systems (Linux, macOS) with advanced optimizations
     libraries.append('pthread')
-    extra_compile_args = ['-std=c99', '-Wall', '-Wextra']
+
+    # Base optimization flags (removed -ffast-math due to NaN issues)
+    extra_compile_args = [
+        '-std=c99', '-Wall', '-Wextra',
+        '-O3', '-flto', '-funroll-loops',
+        '-fomit-frame-pointer',
+        '-finline-functions',
+        '-fno-stack-protector',
+        '-DNDEBUG'
+    ]
+
+    # Platform-specific optimizations
+    if platform.system() == 'Darwin':
+        # macOS - avoid march=native for universal builds
+        extra_link_args = ['-flto', '-Wl,-dead_strip']
+    else:
+        # Linux - use march=native for better performance
+        extra_compile_args.extend(['-march=native', '-mtune=native'])
+        extra_link_args = ['-flto', '-Wl,--gc-sections']
 else:
-    # Windows-specific configuration
-    extra_compile_args = ['/std:c11']  # MSVC equivalent of C99
+    # Windows-specific configuration with optimizations
+    extra_compile_args = ['/std:c11', '/O2', '/GL', '/DNDEBUG']  # MSVC optimizations
+    extra_link_args = ['/LTCG']  # Link-time code generation
 
 # Define the extension module
 cjson_tools_module = Extension(
@@ -28,6 +47,9 @@ cjson_tools_module = Extension(
         '../c-lib/src/json_schema_generator.c',
         '../c-lib/src/json_utils.c',
         '../c-lib/src/thread_pool.c',
+        '../c-lib/src/memory_pool.c',
+        '../c-lib/src/json_parser_simd.c',
+        '../c-lib/src/lockfree_queue.c',
         '../c-lib/src/cJSON.c',  # Include cJSON directly
     ],
     include_dirs=[

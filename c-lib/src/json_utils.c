@@ -3,6 +3,48 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#ifdef __unix__
+#include <sys/mman.h>
+#endif
+
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif
+
+#ifdef __SSE2__
+/**
+ * SIMD-optimized string duplication for better performance
+ */
+static char* my_strdup_simd(const char* str) {
+    if (__builtin_expect(str == NULL, 0)) return NULL;
+
+    size_t len = strlen(str);
+    // Align allocation to 16 bytes for SIMD operations
+    size_t aligned_size = (len + 16) & ~15;
+    char* new_str;
+
+    // Use posix_memalign for better compatibility
+    if (posix_memalign((void**)&new_str, 16, aligned_size) != 0) {
+        return NULL;
+    }
+
+    if (__builtin_expect(new_str == NULL, 0)) return NULL;
+
+    // Copy 16 bytes at a time using SIMD
+    size_t simd_len = len & ~15;
+    for (size_t i = 0; i < simd_len; i += 16) {
+        __m128i chunk = _mm_loadu_si128((__m128i*)(str + i));
+        _mm_store_si128((__m128i*)(new_str + i), chunk);
+    }
+
+    // Copy remaining bytes
+    memcpy(new_str + simd_len, str + simd_len, len - simd_len + 1);
+    return new_str;
+}
+#endif
 
 /**
  * Optimized string duplication function with branch prediction
@@ -11,17 +53,65 @@ char* my_strdup(const char* str) {
     if (__builtin_expect(str == NULL, 0)) return NULL;
 
     size_t len = strlen(str) + 1;
-    char* new_str = (char*)malloc(len);
 
+#ifdef __SSE2__
+    // Use SIMD for longer strings
+    if (len > 32) {
+        return my_strdup_simd(str);
+    }
+#endif
+
+    char* new_str = (char*)malloc(len);
     if (__builtin_expect(new_str == NULL, 0)) return NULL;
 
     return (char*)memcpy(new_str, str, len);
 }
 
 /**
+ * Memory-mapped file reading for large files
+ */
+static char* read_json_file_mmap(const char* filename) {
+#ifdef __unix__
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) return NULL;
+
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        close(fd);
+        return NULL;
+    }
+
+    // Use mmap for files larger than 64KB
+    if (st.st_size > 65536) {
+        void* mapped = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        close(fd);
+
+        if (mapped == MAP_FAILED) return NULL;
+
+        // Copy to heap memory and unmap
+        char* buffer = malloc(st.st_size + 1);
+        if (buffer) {
+            memcpy(buffer, mapped, st.st_size);
+            buffer[st.st_size] = '\0';
+        }
+        munmap(mapped, st.st_size);
+
+        return buffer;
+    }
+
+    close(fd);
+#endif
+    return NULL; // Fall back to regular read
+}
+
+/**
  * Optimized JSON file reader with better error handling
  */
 char* read_json_file(const char* filename) {
+    // Try memory mapping for large files first
+    char* result = read_json_file_mmap(filename);
+    if (result) return result;
+
     FILE* file = fopen(filename, "rb"); // Use binary mode for better performance
     if (__builtin_expect(!file, 0)) {
         fprintf(stderr, "Error: Could not open file %s\n", filename);

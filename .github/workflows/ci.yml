@@ -1,0 +1,400 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.8'
+  PYTHON_VERSIONS: '["3.8", "3.9", "3.10", "3.11", "3.12"]'
+
+jobs:
+  # ============================================================================
+  # C Library Testing
+  # ============================================================================
+  test-c-library:
+    name: Test C Library (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+          - os: macos-latest
+            cc: clang
+            cxx: clang++
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential valgrind
+
+    - name: Setup build environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Ensure Xcode command line tools are available
+        xcode-select --install 2>/dev/null || true
+
+    - name: Build C library
+      env:
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
+      run: |
+        make clean
+        make
+        ls -la bin/
+
+    - name: Test C library basic functionality
+      run: |
+        echo '{"user": {"name": "John", "details": {"age": 30, "city": "NYC"}}}' | ./bin/json_tools -f
+        echo '{"test": "data"}' | ./bin/json_tools -s
+
+    - name: Run C library comprehensive tests
+      run: |
+        cd c-lib/tests
+        chmod +x run_dynamic_tests.sh
+        ./run_dynamic_tests.sh --sizes "100,1000" --quick
+
+    - name: Memory leak check (Ubuntu only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd c-lib/tests
+        echo '{"test": {"nested": "value"}}' > test_input.json
+        valgrind --tool=memcheck --leak-check=full --error-exitcode=1 \
+          ../../bin/json_tools -f test_input.json
+
+    - name: Upload C test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: c-test-results-${{ matrix.os }}
+        path: |
+          c-lib/tests/temp_test_data/
+          c-lib/tests/*.log
+        retention-days: 7
+
+  # ============================================================================
+  # Python Package Testing
+  # ============================================================================
+  test-python-package:
+    name: Test Python Package (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Setup build environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev
+
+    - name: Setup build environment (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: microsoft/setup-msbuild@v1.3
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel setuptools
+
+    - name: Build Python package
+      run: |
+        cd py-lib
+        python -m build
+
+    - name: Install Python package
+      run: |
+        cd py-lib
+        pip install -e .
+
+    - name: Test Python package
+      run: |
+        cd py-lib
+        python tests/test_cjson_tools.py
+
+    - name: Test Python examples
+      run: |
+        cd py-lib
+        python examples/example.py
+
+    - name: Performance test
+      run: |
+        python -c "
+        import cjson_tools
+        import json
+        import time
+        
+        print('🚀 Testing Advanced Optimizations')
+        data = [json.dumps({'id': i, 'nested': {'value': i*2}}) for i in range(1000)]
+        
+        start = time.time()
+        result = cjson_tools.flatten_json_batch(data, use_threads=False)
+        st_time = time.time() - start
+        
+        start = time.time()
+        result = cjson_tools.flatten_json_batch(data, use_threads=True)
+        mt_time = time.time() - start
+        
+        print(f'✅ ST: {st_time:.4f}s, MT: {mt_time:.4f}s, Speedup: {st_time/mt_time:.2f}x')
+        print(f'✅ Processed {len(data)} objects successfully')
+        "
+
+    - name: Upload Python test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-test-results-${{ matrix.python-version }}-${{ matrix.os }}
+        path: |
+          py-lib/dist/
+          py-lib/build/
+        retention-days: 7
+
+  # ============================================================================
+  # Code Quality & Security
+  # ============================================================================
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install quality tools
+      run: |
+        pip install black isort flake8 bandit safety
+
+    - name: Check Python code formatting
+      run: |
+        cd py-lib
+        black --check --diff .
+        isort --check-only --diff .
+
+    - name: Python linting
+      run: |
+        cd py-lib
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Security scan
+      run: |
+        cd py-lib
+        bandit -r cjson_tools/ -f json -o bandit-report.json || true
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          py-lib/bandit-report.json
+          py-lib/safety-report.json
+        retention-days: 30
+
+  # ============================================================================
+  # Performance Benchmarks
+  # ============================================================================
+  benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev
+
+    - name: Build everything
+      run: |
+        make clean && make
+        cd py-lib && pip install -e . && cd ..
+
+    - name: Run C benchmarks
+      run: |
+        cd c-lib/tests
+        chmod +x run_dynamic_tests.sh
+        ./run_dynamic_tests.sh --sizes "1000,5000,10000" --benchmark
+
+    - name: Run Python benchmarks
+      run: |
+        cd py-lib
+        python -c "
+        import cjson_tools
+        import json
+        import time
+        
+        print('📊 Comprehensive Performance Benchmark')
+        sizes = [100, 500, 1000, 2000, 5000]
+        
+        for size in sizes:
+            data = [json.dumps({'id': i, 'data': f'test_{i}', 'nested': {'value': i*2}}) for i in range(size)]
+            
+            start = time.time()
+            result = cjson_tools.flatten_json_batch(data, use_threads=False)
+            st_time = time.time() - start
+            
+            start = time.time()
+            result = cjson_tools.flatten_json_batch(data, use_threads=True)
+            mt_time = time.time() - start
+            
+            speedup = st_time / mt_time
+            throughput = size / st_time
+            
+            print(f'{size:5d} objects: ST={st_time:.4f}s ({throughput:6.0f} obj/s), MT={mt_time:.4f}s, Speedup={speedup:.2f}x')
+        "
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: |
+          c-lib/tests/benchmark_results.md
+          c-lib/tests/temp_test_data/
+        retention-days: 30
+
+  # ============================================================================
+  # Integration Tests
+  # ============================================================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-c-library, test-python-package]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev
+
+    - name: Build and install everything
+      run: |
+        make clean && make
+        cd py-lib && pip install -e . && cd ..
+
+    - name: Test C CLI with Python validation
+      run: |
+        # Test flattening
+        echo '{"user": {"name": "John", "details": {"age": 30, "city": "NYC"}}}' > test.json
+        ./bin/json_tools -f test.json > flattened.json
+        
+        # Validate with Python
+        python -c "
+        import json
+        with open('flattened.json') as f:
+            result = json.load(f)
+        expected_keys = ['user.name', 'user.details.age', 'user.details.city']
+        assert all(key in result for key in expected_keys), 'Missing expected keys'
+        print('✅ C CLI flattening validated')
+        "
+
+    - name: Test schema generation consistency
+      run: |
+        echo '[{"id": 1, "name": "test"}, {"id": 2, "name": "test2", "active": true}]' > schema_test.json
+        ./bin/json_tools -s schema_test.json > c_schema.json
+        
+        python -c "
+        import json
+        import cjson_tools
+        
+        with open('schema_test.json') as f:
+            data = f.read()
+        
+        py_schema = json.loads(cjson_tools.generate_schema(data))
+        
+        with open('c_schema.json') as f:
+            c_schema = json.load(f)
+        
+        # Basic validation
+        assert py_schema['type'] == c_schema['type'], 'Schema type mismatch'
+        assert 'properties' in both schemas
+        print('✅ Schema generation consistency validated')
+        "
+
+    - name: Memory and performance stress test
+      run: |
+        python -c "
+        import cjson_tools
+        import json
+        import gc
+        
+        print('🧪 Memory stress test')
+        
+        # Generate large dataset
+        large_data = []
+        for i in range(10000):
+            obj = {
+                'id': i,
+                'data': f'test_string_{i}' * 10,
+                'nested': {
+                    'level1': {
+                        'level2': {
+                            'value': i,
+                            'array': list(range(i % 20))
+                        }
+                    }
+                }
+            }
+            large_data.append(json.dumps(obj))
+        
+        print(f'Generated {len(large_data)} objects')
+        
+        # Process with memory monitoring
+        import time
+        start = time.time()
+        result = cjson_tools.flatten_json_batch(large_data, use_threads=True)
+        elapsed = time.time() - start
+        
+        print(f'✅ Processed {len(large_data)} objects in {elapsed:.2f}s')
+        print(f'✅ Throughput: {len(large_data)/elapsed:.0f} objects/second')
+        
+        # Force garbage collection
+        del large_data, result
+        gc.collect()
+        print('✅ Memory stress test completed')
+        "

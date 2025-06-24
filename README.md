@@ -1,5 +1,14 @@
 # cJSON-Tools
 
+[![CI](https://github.com/amaye15/cJSON-Tools/workflows/Continuous%20Integration/badge.svg)](https://github.com/amaye15/cJSON-Tools/actions/workflows/ci.yml)
+[![Security](https://github.com/amaye15/cJSON-Tools/workflows/Security%20%26%20Vulnerability%20Scanning/badge.svg)](https://github.com/amaye15/cJSON-Tools/actions/workflows/security.yml)
+[![Performance](https://github.com/amaye15/cJSON-Tools/workflows/Performance%20Monitoring%20%26%20Benchmarks/badge.svg)](https://github.com/amaye15/cJSON-Tools/actions/workflows/performance.yml)
+[![PyPI](https://img.shields.io/pypi/v/cjson-tools.svg)](https://pypi.org/project/cjson-tools/)
+[![Python](https://img.shields.io/pypi/pyversions/cjson-tools.svg)](https://pypi.org/project/cjson-tools/)
+[![License](https://img.shields.io/github/license/amaye15/cJSON-Tools.svg)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/cjson-tools.svg)](https://pypi.org/project/cjson-tools/)
+[![Documentation](https://img.shields.io/badge/docs-github%20pages-blue.svg)](https://amaye15.github.io/cJSON-Tools/)
+
 A high-performance C toolkit for transforming and analyzing JSON data with Python bindings. cJSON-Tools provides powerful tools for:
 
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
@@ -666,7 +675,90 @@ cp bin/json_tools cjson-tools-1.4.0/usr/bin/
 dpkg-deb --build cjson-tools-1.4.0
 ```
 
-## 🔧 Development & Contributing
+## � Automated CI/CD Pipeline
+
+This project includes comprehensive GitHub Actions workflows for automated testing, security scanning, performance monitoring, and deployment:
+
+### 🔄 Continuous Integration (`ci.yml`)
+- **Multi-platform testing**: Ubuntu, macOS, Windows
+- **Python version matrix**: 3.8, 3.9, 3.10, 3.11, 3.12
+- **C library testing**: Build verification, memory leak detection with Valgrind
+- **Python package testing**: Installation, functionality, performance validation
+- **Code quality**: Black formatting, isort, flake8 linting
+- **Security scanning**: Bandit, Safety dependency checks
+- **Integration tests**: C CLI with Python validation, consistency checks
+
+### 🔒 Security & Vulnerability Scanning (`security.yml`)
+- **Dependency scanning**: Python package vulnerabilities with Safety
+- **Static analysis**: CodeQL security analysis for C and Python
+- **Container security**: Trivy vulnerability scanning
+- **License compliance**: Automated license checking
+- **Memory safety**: AddressSanitizer and Valgrind testing
+- **Weekly automated scans**: Scheduled security monitoring
+
+### 📊 Performance Monitoring (`performance.yml`)
+- **Automated benchmarks**: Multi-platform performance testing
+- **Regression detection**: Performance validation on PRs
+- **Scalability testing**: Dataset sizes from 100 to 100K objects
+- **Memory efficiency**: Memory usage monitoring and optimization
+- **Performance visualization**: Automated chart generation
+- **Benchmark history**: Long-term performance tracking
+
+### 📦 Automated Publishing (`publish.yml`)
+- **Multi-platform wheels**: Linux, macOS, Windows (x86_64, ARM64)
+- **Source distribution**: Complete source package building
+- **PyPI publishing**: Automated release to PyPI on tags
+- **Test PyPI**: Optional test publishing for validation
+- **GitHub releases**: Automated release asset creation
+- **Trusted publishing**: Secure PyPI publishing with OIDC
+
+### 📚 Documentation (`docs.yml`)
+- **API documentation**: Automated C and Python API docs
+- **Usage examples**: Comprehensive example generation
+- **Performance guides**: Optimization documentation
+- **GitHub Pages**: Automated documentation deployment
+- **Release validation**: Version consistency checking
+
+### 🎯 Workflow Features
+
+**Quality Assurance:**
+- ✅ Comprehensive test coverage across platforms and Python versions
+- ✅ Memory leak detection with Valgrind
+- ✅ Security vulnerability scanning
+- ✅ Performance regression detection
+- ✅ Code quality enforcement
+
+**Automation:**
+- 🔄 Automatic testing on every PR and push
+- 📦 Automated PyPI publishing on releases
+- 📊 Weekly performance and security monitoring
+- 📚 Automatic documentation updates
+- 🏷️ Badge updates for README
+
+**Security:**
+- 🔒 CodeQL static analysis
+- 🛡️ Container security scanning
+- 📋 License compliance monitoring
+- 🔍 Dependency vulnerability tracking
+- 🧪 Memory safety validation
+
+**Performance:**
+- ⚡ Multi-platform benchmarking
+- 📈 Performance visualization
+- 🎯 Regression detection
+- 💾 Memory efficiency monitoring
+- 📊 Throughput analysis
+
+### 🚀 Getting Started with CI/CD
+
+1. **Fork the repository** and enable GitHub Actions
+2. **Configure secrets** for PyPI publishing (if needed)
+3. **Create a release** to trigger automated publishing
+4. **Monitor workflows** in the Actions tab
+
+The CI/CD pipeline ensures high code quality, security, and performance while automating the entire release process from development to production deployment.
+
+## �🔧 Development & Contributing
 
 ### Development Setup
 ```bash

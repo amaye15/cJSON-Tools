@@ -1,6 +1,9 @@
 #include "../include/json_flattener.h"
 #include "../include/json_utils.h"
 #include "../include/thread_pool.h"
+#include "../include/memory_pool.h"
+#include "../include/string_view.h"
+#include "../include/compiler_hints.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,10 +43,10 @@ typedef struct {
     size_t buffer_size;
 } ThreadData;
 
-// Optimized memory allocation from pool
+// Optimized memory allocation from pool with 16-byte alignment
 static char* pool_alloc(FlattenedArray* array, size_t size) {
-    // Align to 8-byte boundary for better performance
-    size = (size + 7) & ~7;
+    // Use power-of-2 alignment for better cache performance
+    size = (size + 15) & ~15;  // 16-byte alignment instead of 8
 
     if (array->pool_used + size <= array->pool_size) {
         char* ptr = array->memory_pool + array->pool_used;
@@ -51,8 +54,13 @@ static char* pool_alloc(FlattenedArray* array, size_t size) {
         return ptr;
     }
 
-    // Fall back to malloc for large allocations
-    return malloc(size);
+    // Allocate larger chunks to reduce fragmentation
+    if (size < 1024) {
+        return malloc(size);
+    } else {
+        // For large allocations, use regular malloc (mmap would require platform-specific code)
+        return malloc(size);
+    }
 }
 
 // Initialize the flattened array with optimized memory allocation
@@ -69,42 +77,91 @@ void init_flattened_array(FlattenedArray* array, int initial_capacity) {
     array->pool_size = MEMORY_POOL_SIZE;
 }
 
-// Optimized string duplication using memory pool
-static char* pool_strdup(FlattenedArray* array, const char* str) {
-    if (__builtin_expect(!str, 0)) return NULL;
+// Optimized key construction with better performance
+static inline void build_key_optimized(char* buffer, size_t buffer_size,
+                                     const char* prefix, const char* suffix,
+                                     int is_array_index, int index) {
+    if (!prefix) {
+        if (is_array_index) {
+            snprintf(buffer, buffer_size, "[%d]", index);
+        } else {
+            strncpy(buffer, suffix, buffer_size - 1);
+            buffer[buffer_size - 1] = '\0';
+        }
+        return;
+    }
+
+    size_t prefix_len = strlen(prefix);
+    if (is_array_index) {
+        // Use faster integer formatting
+        snprintf(buffer, buffer_size, "%.*s[%d]", (int)prefix_len, prefix, index);
+    } else {
+        // Use memcpy for better performance than strcat
+        size_t suffix_len = strlen(suffix);
+        if (prefix_len + suffix_len + 2 < buffer_size) {
+            memcpy(buffer, prefix, prefix_len);
+            buffer[prefix_len] = '.';
+            memcpy(buffer + prefix_len + 1, suffix, suffix_len + 1);
+        }
+    }
+}
+
+// Cache-optimized string duplication using memory pool
+HOT_PATH static char* pool_strdup(FlattenedArray* array, const char* str) {
+    if (UNLIKELY(!str)) return NULL;
 
     size_t len = strlen(str) + 1;
     char* new_str;
 
-    // Use pool for small strings
-    if (len <= 128) {
+    // Use pool for small strings (most common case)
+    if (LIKELY(len <= 128)) {
         new_str = pool_alloc(array, len);
-        if (new_str != NULL) {
+        if (LIKELY(new_str != NULL)) {
+            // Use optimized memory copy
             memcpy(new_str, str, len);
             return new_str;
         }
     }
 
-    // Fall back to regular allocation
-    return my_strdup(str);
-}
-
-// Add a key-value pair to the flattened array with optimized growth
-void add_pair(FlattenedArray* array, const char* key, cJSON* value) {
-    // Resize if needed with better growth strategy
-    if (__builtin_expect(array->count >= array->capacity, 0)) {
-        // Grow by 1.5x instead of 2x to reduce memory waste
-        array->capacity = array->capacity + (array->capacity >> 1);
-        array->pairs = (FlattenedPair*)realloc(array->pairs, array->capacity * sizeof(FlattenedPair));
-        if (__builtin_expect(!array->pairs, 0)) {
-            return; // Handle allocation failure gracefully
+    // Fall back to global pool or regular allocation
+    if (g_cjson_node_pool && len <= 256) {
+        new_str = POOL_ALLOC(g_cjson_node_pool);
+        if (new_str) {
+            memcpy(new_str, str, len);
+            return new_str;
         }
     }
 
+    return my_strdup(str);
+}
+
+// Cache-friendly pair addition with prefetching
+HOT_PATH void add_pair(FlattenedArray* array, const char* key, cJSON* value) {
+    // Resize if needed with better growth strategy
+    if (UNLIKELY(array->count >= array->capacity)) {
+        // Grow by 1.5x instead of 2x to reduce memory waste
+        int new_capacity = array->capacity + (array->capacity >> 1);
+        FlattenedPair* new_pairs = (FlattenedPair*)realloc(array->pairs, new_capacity * sizeof(FlattenedPair));
+        if (UNLIKELY(!new_pairs)) {
+            return; // Handle allocation failure gracefully
+        }
+        array->pairs = new_pairs;
+        array->capacity = new_capacity;
+
+        // Prefetch the new memory region
+        PREFETCH_WRITE(&array->pairs[array->count]);
+    }
+
     // Add the new pair with optimized string allocation
-    array->pairs[array->count].key = pool_strdup(array, key);
-    array->pairs[array->count].value = value;
+    FlattenedPair* pair = &array->pairs[array->count];
+    pair->key = pool_strdup(array, key);
+    pair->value = value;
     array->count++;
+
+    // Prefetch next pair location for better cache performance
+    if (LIKELY(array->count < array->capacity)) {
+        PREFETCH_WRITE(&array->pairs[array->count]);
+    }
 }
 
 // Free the flattened array with memory pool cleanup

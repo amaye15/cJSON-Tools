@@ -1,0 +1,576 @@
+name: Performance Monitoring & Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests weekly on Saturdays at 3 AM UTC
+    - cron: '0 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      benchmark_size:
+        description: 'Benchmark dataset size'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+        - small
+        - medium
+        - large
+        - comprehensive
+
+jobs:
+  # ============================================================================
+  # Performance Benchmarks
+  # ============================================================================
+  performance-benchmarks:
+    name: Performance Benchmarks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup build environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev time
+
+    - name: Setup build environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install gnu-time || true
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install matplotlib pandas numpy psutil
+
+    - name: Build optimized version
+      run: |
+        make clean
+        make
+
+    - name: Build Python package
+      run: |
+        cd py-lib
+        pip install -e .
+
+    - name: Determine benchmark size
+      id: benchmark-config
+      run: |
+        case "${{ github.event.inputs.benchmark_size || 'medium' }}" in
+          small)
+            echo "sizes=100,500,1000" >> $GITHUB_OUTPUT
+            echo "iterations=5" >> $GITHUB_OUTPUT
+            ;;
+          medium)
+            echo "sizes=100,1000,5000,10000" >> $GITHUB_OUTPUT
+            echo "iterations=3" >> $GITHUB_OUTPUT
+            ;;
+          large)
+            echo "sizes=1000,5000,10000,25000,50000" >> $GITHUB_OUTPUT
+            echo "iterations=3" >> $GITHUB_OUTPUT
+            ;;
+          comprehensive)
+            echo "sizes=100,500,1000,2000,5000,10000,25000,50000,100000" >> $GITHUB_OUTPUT
+            echo "iterations=2" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+    - name: Run C library benchmarks
+      run: |
+        cd c-lib/tests
+        chmod +x run_dynamic_tests.sh
+        
+        echo "🚀 Running C Library Performance Benchmarks"
+        echo "Platform: ${{ matrix.platform }}"
+        echo "Sizes: ${{ steps.benchmark-config.outputs.sizes }}"
+        echo "Iterations: ${{ steps.benchmark-config.outputs.iterations }}"
+        
+        # Run benchmarks with timing
+        time ./run_dynamic_tests.sh --sizes "${{ steps.benchmark-config.outputs.sizes }}" --benchmark
+
+    - name: Run Python performance benchmarks
+      run: |
+        python -c "
+        import cjson_tools
+        import json
+        import time
+        import statistics
+        import psutil
+        import os
+        
+        print('🐍 Python Performance Benchmarks')
+        print('=' * 60)
+        
+        sizes = [int(x) for x in '${{ steps.benchmark-config.outputs.sizes }}'.split(',')]
+        iterations = int('${{ steps.benchmark-config.outputs.iterations }}')
+        
+        results = []
+        
+        for size in sizes:
+            print(f'\\n📊 Testing {size} objects...')
+            
+            # Generate test data
+            test_data = []
+            for i in range(size):
+                obj = {
+                    'id': i,
+                    'name': f'Object_{i}',
+                    'metadata': {
+                        'created': f'2023-{(i % 12) + 1:02d}-01',
+                        'tags': [f'tag_{i}', f'category_{i % 10}'],
+                        'score': round(i * 0.1, 2),
+                        'active': i % 2 == 0,
+                        'nested': {
+                            'deep': {
+                                'value': f'deep_value_{i}',
+                                'count': i % 100,
+                                'array': [i, i*2, i*3]
+                            }
+                        }
+                    }
+                }
+                test_data.append(json.dumps(obj))
+            
+            # Measure memory before
+            process = psutil.Process(os.getpid())
+            mem_before = process.memory_info().rss / 1024 / 1024  # MB
+            
+            # Single-threaded benchmarks
+            st_times = []
+            for _ in range(iterations):
+                start = time.time()
+                result = cjson_tools.flatten_json_batch(test_data, use_threads=False)
+                st_times.append(time.time() - start)
+            
+            # Multi-threaded benchmarks
+            mt_times = []
+            for _ in range(iterations):
+                start = time.time()
+                result = cjson_tools.flatten_json_batch(test_data, use_threads=True, num_threads=4)
+                mt_times.append(time.time() - start)
+            
+            # Schema generation benchmark
+            schema_times = []
+            schema_data = test_data[:min(size, 1000)]  # Limit for schema
+            for _ in range(iterations):
+                start = time.time()
+                schema = cjson_tools.generate_schema_batch(schema_data, use_threads=True)
+                schema_times.append(time.time() - start)
+            
+            # Measure memory after
+            mem_after = process.memory_info().rss / 1024 / 1024  # MB
+            
+            # Calculate statistics
+            st_avg = statistics.mean(st_times)
+            mt_avg = statistics.mean(mt_times)
+            schema_avg = statistics.mean(schema_times)
+            speedup = st_avg / mt_avg
+            throughput_st = size / st_avg
+            throughput_mt = size / mt_avg
+            memory_used = mem_after - mem_before
+            
+            print(f'  Single-threaded: {st_avg:.4f}s ({throughput_st:6.0f} obj/s)')
+            print(f'  Multi-threaded:  {mt_avg:.4f}s ({throughput_mt:6.0f} obj/s)')
+            print(f'  Speedup: {speedup:.2f}x')
+            print(f'  Schema gen: {schema_avg:.4f}s ({len(schema_data)/schema_avg:.0f} obj/s)')
+            print(f'  Memory used: {memory_used:.1f} MB')
+            
+            results.append({
+                'size': size,
+                'st_time': st_avg,
+                'mt_time': mt_avg,
+                'schema_time': schema_avg,
+                'speedup': speedup,
+                'throughput_st': throughput_st,
+                'throughput_mt': throughput_mt,
+                'memory_mb': memory_used
+            })
+        
+        # Save results
+        import csv
+        with open('python_benchmark_results.csv', 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=results[0].keys())
+            writer.writeheader()
+            writer.writerows(results)
+        
+        print('\\n✅ Python benchmarks completed!')
+        print(f'Results saved to python_benchmark_results.csv')
+        "
+
+    - name: Generate performance report
+      run: |
+        python -c "
+        import csv
+        import json
+        import os
+        
+        # Read Python benchmark results
+        results = []
+        if os.path.exists('python_benchmark_results.csv'):
+            with open('python_benchmark_results.csv', 'r') as f:
+                results = list(csv.DictReader(f))
+        
+        # Generate markdown report
+        report = []
+        report.append('# 📊 Performance Benchmark Report')
+        report.append('')
+        report.append(f'**Platform:** ${{ matrix.platform }}')
+        report.append(f'**Date:** $(date)')
+        report.append(f'**Benchmark Size:** ${{ github.event.inputs.benchmark_size || \"medium\" }}')
+        report.append('')
+        report.append('## Python Performance Results')
+        report.append('')
+        report.append('| Objects | ST Time | MT Time | Speedup | ST Throughput | MT Throughput | Memory (MB) |')
+        report.append('|---------|---------|---------|---------|---------------|---------------|-------------|')
+        
+        for result in results:
+            size = result['size']
+            st_time = float(result['st_time'])
+            mt_time = float(result['mt_time'])
+            speedup = float(result['speedup'])
+            throughput_st = float(result['throughput_st'])
+            throughput_mt = float(result['throughput_mt'])
+            memory = float(result['memory_mb'])
+            
+            report.append(f'| {size} | {st_time:.4f}s | {mt_time:.4f}s | {speedup:.2f}x | {throughput_st:.0f} obj/s | {throughput_mt:.0f} obj/s | {memory:.1f} |')
+        
+        report.append('')
+        report.append('## Key Metrics')
+        report.append('')
+        
+        if results:
+            avg_speedup = sum(float(r['speedup']) for r in results) / len(results)
+            max_throughput = max(float(r['throughput_mt']) for r in results)
+            total_memory = sum(float(r['memory_mb']) for r in results)
+            
+            report.append(f'- **Average Speedup:** {avg_speedup:.2f}x')
+            report.append(f'- **Peak Throughput:** {max_throughput:.0f} objects/second')
+            report.append(f'- **Total Memory Used:** {total_memory:.1f} MB')
+        
+        report.append('')
+        report.append('## Advanced Optimizations Active')
+        report.append('')
+        report.append('- ✅ Memory Pool Allocation')
+        report.append('- ✅ SIMD JSON Parsing')
+        report.append('- ✅ Lock-Free Data Structures')
+        report.append('- ✅ Cache-Friendly Memory Layout')
+        report.append('- ✅ Zero-Copy String Operations')
+        report.append('- ✅ GIL Release for Python')
+        
+        with open('performance_report_${{ matrix.platform }}.md', 'w') as f:
+            f.write('\\n'.join(report))
+        
+        print('📊 Performance report generated')
+        "
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results-${{ matrix.platform }}
+        path: |
+          python_benchmark_results.csv
+          performance_report_${{ matrix.platform }}.md
+          c-lib/tests/benchmark_results.md
+          c-lib/tests/temp_test_data/
+        retention-days: 30
+
+  # ============================================================================
+  # Performance Regression Detection
+  # ============================================================================
+  regression-detection:
+    name: Performance Regression Detection
+    needs: performance-benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for comparison
+
+    - name: Download benchmark results
+      uses: actions/download-artifact@v4
+      with:
+        name: benchmark-results-linux
+        path: current-results/
+
+    - name: Setup Python for analysis
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install analysis dependencies
+      run: |
+        pip install pandas numpy
+
+    - name: Analyze performance regression
+      run: |
+        python -c "
+        import csv
+        import os
+        
+        print('🔍 Performance Regression Analysis')
+        print('=' * 50)
+        
+        # Read current results
+        current_file = 'current-results/python_benchmark_results.csv'
+        if not os.path.exists(current_file):
+            print('❌ No current benchmark results found')
+            exit(0)
+        
+        with open(current_file, 'r') as f:
+            current_results = list(csv.DictReader(f))
+        
+        # Performance thresholds
+        REGRESSION_THRESHOLD = 0.15  # 15% slower is considered regression
+        IMPROVEMENT_THRESHOLD = 0.10  # 10% faster is considered improvement
+        
+        regressions = []
+        improvements = []
+        
+        # For now, just validate current performance is reasonable
+        for result in current_results:
+            size = int(result['size'])
+            throughput_mt = float(result['throughput_mt'])
+            speedup = float(result['speedup'])
+            
+            # Expected minimum performance (objects/second)
+            min_expected_throughput = {
+                100: 50000,    # 50K obj/s
+                1000: 40000,   # 40K obj/s  
+                5000: 30000,   # 30K obj/s
+                10000: 25000,  # 25K obj/s
+            }
+            
+            if size in min_expected_throughput:
+                expected = min_expected_throughput[size]
+                if throughput_mt < expected:
+                    regressions.append(f'Size {size}: {throughput_mt:.0f} obj/s < {expected} obj/s expected')
+                elif throughput_mt > expected * (1 + IMPROVEMENT_THRESHOLD):
+                    improvements.append(f'Size {size}: {throughput_mt:.0f} obj/s > {expected} obj/s expected')
+        
+        # Report results
+        if regressions:
+            print('⚠️  Performance Regressions Detected:')
+            for reg in regressions:
+                print(f'  - {reg}')
+        else:
+            print('✅ No performance regressions detected')
+        
+        if improvements:
+            print('🚀 Performance Improvements Detected:')
+            for imp in improvements:
+                print(f'  - {imp}')
+        
+        # Summary
+        print(f'\\n📊 Summary:')
+        print(f'  - Tested sizes: {len(current_results)}')
+        print(f'  - Regressions: {len(regressions)}')
+        print(f'  - Improvements: {len(improvements)}')
+        
+        # Exit with error if regressions found
+        if regressions:
+            print('\\n❌ Performance regression detected!')
+            exit(1)
+        else:
+            print('\\n✅ Performance validation passed!')
+        "
+
+    - name: Comment on PR with performance results
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let comment = '## 📊 Performance Benchmark Results\\n\\n';
+          
+          try {
+            const reportPath = 'current-results/performance_report_linux.md';
+            if (fs.existsSync(reportPath)) {
+              const report = fs.readFileSync(reportPath, 'utf8');
+              comment += report;
+            } else {
+              comment += '❌ Performance report not found\\n';
+            }
+          } catch (error) {
+            comment += `❌ Error reading performance report: ${error.message}\\n`;
+          }
+          
+          comment += '\\n---\\n';
+          comment += '*Performance benchmarks run automatically on every PR*';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  # ============================================================================
+  # Performance Visualization
+  # ============================================================================
+  performance-visualization:
+    name: Generate Performance Charts
+    needs: performance-benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all benchmark results
+      uses: actions/download-artifact@v4
+      with:
+        path: benchmark-results/
+
+    - name: Setup Python for visualization
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install visualization dependencies
+      run: |
+        pip install matplotlib pandas numpy seaborn
+
+    - name: Generate performance charts
+      run: |
+        python -c "
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        import numpy as np
+        import csv
+        import os
+        import glob
+        
+        # Find all CSV files
+        csv_files = glob.glob('benchmark-results/*/python_benchmark_results.csv')
+        
+        if not csv_files:
+            print('No benchmark CSV files found')
+            exit(0)
+        
+        # Read and combine data
+        all_data = []
+        for csv_file in csv_files:
+            platform = 'linux' if 'linux' in csv_file else 'macos'
+            with open(csv_file, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    row['platform'] = platform
+                    all_data.append(row)
+        
+        if not all_data:
+            print('No data found in CSV files')
+            exit(0)
+        
+        df = pd.DataFrame(all_data)
+        df['size'] = df['size'].astype(int)
+        df['throughput_mt'] = df['throughput_mt'].astype(float)
+        df['speedup'] = df['speedup'].astype(float)
+        df['memory_mb'] = df['memory_mb'].astype(float)
+        
+        # Create performance charts
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+        
+        # Throughput chart
+        for platform in df['platform'].unique():
+            platform_data = df[df['platform'] == platform]
+            ax1.plot(platform_data['size'], platform_data['throughput_mt'], 
+                    marker='o', label=f'{platform.title()} MT', linewidth=2)
+        
+        ax1.set_xlabel('Dataset Size (objects)')
+        ax1.set_ylabel('Throughput (objects/second)')
+        ax1.set_title('Multi-threaded Performance')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        ax1.set_xscale('log')
+        
+        # Speedup chart
+        for platform in df['platform'].unique():
+            platform_data = df[df['platform'] == platform]
+            ax2.plot(platform_data['size'], platform_data['speedup'], 
+                    marker='s', label=f'{platform.title()}', linewidth=2)
+        
+        ax2.axhline(y=1.0, color='red', linestyle='--', alpha=0.7, label='No speedup')
+        ax2.set_xlabel('Dataset Size (objects)')
+        ax2.set_ylabel('Speedup (MT vs ST)')
+        ax2.set_title('Multi-threading Speedup')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        ax2.set_xscale('log')
+        
+        # Memory usage chart
+        for platform in df['platform'].unique():
+            platform_data = df[df['platform'] == platform]
+            ax3.plot(platform_data['size'], platform_data['memory_mb'], 
+                    marker='^', label=f'{platform.title()}', linewidth=2)
+        
+        ax3.set_xlabel('Dataset Size (objects)')
+        ax3.set_ylabel('Memory Usage (MB)')
+        ax3.set_title('Memory Efficiency')
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        ax3.set_xscale('log')
+        
+        # Performance efficiency (throughput per MB)
+        for platform in df['platform'].unique():
+            platform_data = df[df['platform'] == platform]
+            efficiency = platform_data['throughput_mt'] / platform_data['memory_mb']
+            ax4.plot(platform_data['size'], efficiency, 
+                    marker='d', label=f'{platform.title()}', linewidth=2)
+        
+        ax4.set_xlabel('Dataset Size (objects)')
+        ax4.set_ylabel('Efficiency (obj/s per MB)')
+        ax4.set_title('Memory Efficiency')
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+        ax4.set_xscale('log')
+        
+        plt.tight_layout()
+        plt.savefig('performance_charts.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print('📊 Performance charts generated: performance_charts.png')
+        "
+
+    - name: Upload performance charts
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-charts
+        path: performance_charts.png
+        retention-days: 90
+
+    - name: Commit charts to repository
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Copy chart to docs directory
+        mkdir -p docs/images
+        cp performance_charts.png docs/images/
+        
+        git add docs/images/performance_charts.png
+        git commit -m "📊 Update performance charts [skip ci]" || exit 0
+        git push

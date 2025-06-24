@@ -1,6 +1,8 @@
 #include "../include/json_flattener.h"
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
+#include "../include/memory_pool.h"
+#include "../include/compiler_hints.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +31,9 @@ void print_usage(const char* program_name) {
 }
 
 int main(int argc, char* argv[]) {
+    // Initialize global memory pools for better performance
+    init_global_pools();
+
     // Default options
     int action_flatten = 1;
     int action_schema = 0;
@@ -185,5 +190,9 @@ int main(int argc, char* argv[]) {
     }
     
     free(result);
+
+    // Cleanup global memory pools
+    cleanup_global_pools();
+
     return 0;
 }

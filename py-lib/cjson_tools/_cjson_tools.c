@@ -11,31 +11,36 @@
  * Flatten a JSON string
  */
 static PyObject* py_flatten_json(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
     const char* json_string;
     int use_threads = 0;
     int num_threads = 0;
-    
+
     static char* kwlist[] = {"json_string", "use_threads", "num_threads", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ii", kwlist, 
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ii", kwlist,
                                     &json_string, &use_threads, &num_threads)) {
         return NULL;
     }
-    
-    // Call the C function
-    char* result = flatten_json_string(json_string, use_threads, num_threads);
-    
+
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+    result = flatten_json_string(json_string, use_threads, num_threads);
+    Py_END_ALLOW_THREADS
+
     if (result == NULL) {
         PyErr_SetString(PyExc_ValueError, "Failed to flatten JSON");
         return NULL;
     }
-    
+
     // Convert the result to a Python string
     PyObject* py_result = PyUnicode_FromString(result);
-    
+
     // Free the C string
     free(result);
-    
+
     return py_result;
 }
 
@@ -43,22 +48,25 @@ static PyObject* py_flatten_json(PyObject* self, PyObject* args, PyObject* kwarg
  * Flatten a batch of JSON objects
  */
 static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
     PyObject* json_list;
     int use_threads = 1;
     int num_threads = 0;
-    
+
     static char* kwlist[] = {"json_list", "use_threads", "num_threads", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|ii", kwlist, 
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|ii", kwlist,
                                     &json_list, &use_threads, &num_threads)) {
         return NULL;
     }
-    
+
     // Check if the input is a list
     if (!PyList_Check(json_list)) {
         PyErr_SetString(PyExc_TypeError, "Expected a list of JSON strings");
         return NULL;
     }
+
+    Py_ssize_t list_size = PyList_Size(json_list);
     
     // Create a JSON array
     cJSON* json_array = cJSON_CreateArray();
@@ -68,7 +76,6 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
     }
     
     // Convert each Python object to a JSON object and add to the array
-    Py_ssize_t list_size = PyList_Size(json_list);
     for (Py_ssize_t i = 0; i < list_size; i++) {
         PyObject* item = PyList_GetItem(json_list, i);
         
@@ -111,43 +118,37 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
         return NULL;
     }
     
-    // Convert the result to a Python list
-    PyObject* result_list = PyList_New(0);
+    // Pre-allocate result list with known size for better performance
+    int array_size = cJSON_GetArraySize(flattened_array);
+    PyObject* result_list = PyList_New(array_size);
     if (result_list == NULL) {
         cJSON_Delete(flattened_array);
         return NULL;
     }
-    
-    // Add each flattened object to the result list
-    int array_size = cJSON_GetArraySize(flattened_array);
+
+    // Add each flattened object to the result list using SET_ITEM for better performance
     for (int i = 0; i < array_size; i++) {
         cJSON* item = cJSON_GetArrayItem(flattened_array, i);
         char* item_str = cJSON_Print(item);
-        
+
         if (item_str == NULL) {
             Py_DECREF(result_list);
             cJSON_Delete(flattened_array);
             PyErr_SetString(PyExc_MemoryError, "Failed to convert JSON to string");
             return NULL;
         }
-        
+
         PyObject* py_item = PyUnicode_FromString(item_str);
         free(item_str);
-        
+
         if (py_item == NULL) {
             Py_DECREF(result_list);
             cJSON_Delete(flattened_array);
             return NULL;
         }
-        
-        if (PyList_Append(result_list, py_item) < 0) {
-            Py_DECREF(py_item);
-            Py_DECREF(result_list);
-            cJSON_Delete(flattened_array);
-            return NULL;
-        }
-        
-        Py_DECREF(py_item);
+
+        // Use SET_ITEM instead of Append for better performance (steals reference)
+        PyList_SET_ITEM(result_list, i, py_item);
     }
     
     // Free the flattened array
@@ -160,31 +161,36 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
  * Generate a JSON schema from a JSON string
  */
 static PyObject* py_generate_schema(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
     const char* json_string;
     int use_threads = 0;
     int num_threads = 0;
-    
+
     static char* kwlist[] = {"json_string", "use_threads", "num_threads", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ii", kwlist, 
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ii", kwlist,
                                     &json_string, &use_threads, &num_threads)) {
         return NULL;
     }
-    
-    // Call the C function
-    char* result = generate_schema_from_string(json_string, use_threads, num_threads);
-    
+
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+    result = generate_schema_from_string(json_string, use_threads, num_threads);
+    Py_END_ALLOW_THREADS
+
     if (result == NULL) {
         PyErr_SetString(PyExc_ValueError, "Failed to generate schema");
         return NULL;
     }
-    
+
     // Convert the result to a Python string
     PyObject* py_result = PyUnicode_FromString(result);
-    
+
     // Free the C string
     free(result);
-    
+
     return py_result;
 }
 
@@ -192,13 +198,14 @@ static PyObject* py_generate_schema(PyObject* self, PyObject* args, PyObject* kw
  * Generate a JSON schema from a batch of JSON objects
  */
 static PyObject* py_generate_schema_batch(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
     PyObject* json_list;
     int use_threads = 1;
     int num_threads = 0;
-    
+
     static char* kwlist[] = {"json_list", "use_threads", "num_threads", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|ii", kwlist, 
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|ii", kwlist,
                                     &json_list, &use_threads, &num_threads)) {
         return NULL;
     }
