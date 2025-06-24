@@ -113,7 +113,7 @@ jobs:
 
     - name: Setup build environment (Windows)
       if: matrix.os == 'windows-latest'
-      uses: microsoft/setup-msbuild@v1.3
+      uses: microsoft/setup-msbuild@v2
 
     - name: Install Python dependencies
       run: |

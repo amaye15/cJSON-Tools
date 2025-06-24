@@ -75,6 +75,7 @@ static unsigned int hash_string(const char* str) {
 }
 
 // Fast property lookup using hash table
+static PropertyNode* find_property_fast(PropertyHash* hash, const char* name) __attribute__((unused));
 static PropertyNode* find_property_fast(PropertyHash* hash, const char* name) {
     unsigned int bucket = hash_string(name);
     PropertyNode* prop = hash->buckets[bucket];
@@ -114,7 +115,7 @@ HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* prope
     if (UNLIKELY(!prop)) return;
 
     // Use string view for faster string operations
-    StringView name_view = make_string_view_cstr(name);
+    StringView name_view __attribute__((unused)) = make_string_view_cstr(name);
 
     prop->name = my_strdup(name);
     prop->schema = property_schema;

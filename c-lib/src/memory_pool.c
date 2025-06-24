@@ -6,6 +6,30 @@
 #ifdef __unix__
 #include <sys/mman.h>
 #include <unistd.h>
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+#endif
+
+// For aligned_alloc - only define if not available
+#if !defined(__APPLE__) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L)
+#if defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
+static inline void* my_aligned_alloc(size_t alignment, size_t size) {
+    void* ptr;
+    if (posix_memalign(&ptr, alignment, size) == 0) {
+        return ptr;
+    }
+    return NULL;
+}
+#define aligned_alloc my_aligned_alloc
+#else
+// Fallback for older systems
+static inline void* my_aligned_alloc(size_t alignment, size_t size) {
+    (void)alignment;
+    return malloc(size);
+}
+#define aligned_alloc my_aligned_alloc
+#endif
 #endif
 
 // Global pools
