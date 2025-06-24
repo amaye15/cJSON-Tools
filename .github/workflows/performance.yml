@@ -126,7 +126,7 @@ jobs:
         results = []
         
         for size in sizes:
-            print(f'\\n📊 Testing {size} objects...')
+            print(f'\\\\n📊 Testing {size} objects...')
             
             # Generate test data
             test_data = []
@@ -212,36 +212,37 @@ jobs:
             writer.writeheader()
             writer.writerows(results)
         
-        print('\\n✅ Python benchmarks completed!')
+        print('\\\\n✅ Python benchmarks completed!')
         print(f'Results saved to python_benchmark_results.csv')
         "
 
     - name: Generate performance report
       run: |
-        python -c "
+        cat > generate_report.py << 'EOF'
         import csv
         import json
         import os
-        
+        import sys
+
         # Read Python benchmark results
         results = []
         if os.path.exists('python_benchmark_results.csv'):
             with open('python_benchmark_results.csv', 'r') as f:
                 results = list(csv.DictReader(f))
-        
+
         # Generate markdown report
         report = []
         report.append('# 📊 Performance Benchmark Report')
         report.append('')
-        report.append(f'**Platform:** ${{ matrix.platform }}')
-        report.append(f'**Date:** $(date)')
-        report.append(f'**Benchmark Size:** ${{ github.event.inputs.benchmark_size || \"medium\" }}')
+        report.append('**Platform:** ${{ matrix.platform }}')
+        report.append('**Date:** ' + os.popen('date').read().strip())
+        report.append('**Benchmark Size:** ${{ github.event.inputs.benchmark_size || \'medium\' }}')
         report.append('')
         report.append('## Python Performance Results')
         report.append('')
         report.append('| Objects | ST Time | MT Time | Speedup | ST Throughput | MT Throughput | Memory (MB) |')
         report.append('|---------|---------|---------|---------|---------------|---------------|-------------|')
-        
+
         for result in results:
             size = result['size']
             st_time = float(result['st_time'])
@@ -250,22 +251,22 @@ jobs:
             throughput_st = float(result['throughput_st'])
             throughput_mt = float(result['throughput_mt'])
             memory = float(result['memory_mb'])
-            
+
             report.append(f'| {size} | {st_time:.4f}s | {mt_time:.4f}s | {speedup:.2f}x | {throughput_st:.0f} obj/s | {throughput_mt:.0f} obj/s | {memory:.1f} |')
-        
+
         report.append('')
         report.append('## Key Metrics')
         report.append('')
-        
+
         if results:
             avg_speedup = sum(float(r['speedup']) for r in results) / len(results)
             max_throughput = max(float(r['throughput_mt']) for r in results)
             total_memory = sum(float(r['memory_mb']) for r in results)
-            
+
             report.append(f'- **Average Speedup:** {avg_speedup:.2f}x')
             report.append(f'- **Peak Throughput:** {max_throughput:.0f} objects/second')
             report.append(f'- **Total Memory Used:** {total_memory:.1f} MB')
-        
+
         report.append('')
         report.append('## Advanced Optimizations Active')
         report.append('')
@@ -275,12 +276,13 @@ jobs:
         report.append('- ✅ Cache-Friendly Memory Layout')
         report.append('- ✅ Zero-Copy String Operations')
         report.append('- ✅ GIL Release for Python')
-        
+
         with open('performance_report_${{ matrix.platform }}.md', 'w') as f:
-            f.write('\\n'.join(report))
-        
+            f.write('\n'.join(report))
+
         print('📊 Performance report generated')
-        "
+        EOF
+        python generate_report.py
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4
@@ -383,17 +385,17 @@ jobs:
                 print(f'  - {imp}')
         
         # Summary
-        print(f'\\n📊 Summary:')
+        print(f'\\\\n📊 Summary:')
         print(f'  - Tested sizes: {len(current_results)}')
         print(f'  - Regressions: {len(regressions)}')
         print(f'  - Improvements: {len(improvements)}')
         
         # Exit with error if regressions found
         if regressions:
-            print('\\n❌ Performance regression detected!')
+            print('\\\\n❌ Performance regression detected!')
             exit(1)
         else:
-            print('\\n✅ Performance validation passed!')
+            print('\\\\n✅ Performance validation passed!')
         "
 
     - name: Comment on PR with performance results
@@ -403,7 +405,7 @@ jobs:
         script: |
           const fs = require('fs');
           
-          let comment = '## 📊 Performance Benchmark Results\\n\\n';
+          let comment = '## 📊 Performance Benchmark Results\\\\n\\\\n';
           
           try {
             const reportPath = 'current-results/performance_report_linux.md';
@@ -411,13 +413,13 @@ jobs:
               const report = fs.readFileSync(reportPath, 'utf8');
               comment += report;
             } else {
-              comment += '❌ Performance report not found\\n';
+              comment += '❌ Performance report not found\\\\n';
             }
           } catch (error) {
-            comment += `❌ Error reading performance report: ${error.message}\\n`;
+            comment += `❌ Error reading performance report: ${error.message}\\\\n`;
           }
           
-          comment += '\\n---\\n';
+          comment += '\\\\n---\\\\n';
           comment += '*Performance benchmarks run automatically on every PR*';
           
           github.rest.issues.createComment({

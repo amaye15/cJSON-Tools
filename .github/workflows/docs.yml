@@ -28,7 +28,7 @@ jobs:
 
     - name: Install documentation dependencies
       run: |
-        pip install sphinx sphinx-rtd-theme myst-parser doxygen
+        pip install sphinx sphinx-rtd-theme myst-parser
 
     - name: Setup build environment
       run: |
@@ -437,14 +437,20 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        
-        if git diff --quiet; then
-            echo "No changes to commit"
+
+        # Stash any existing changes
+        git stash push -m "Temporary stash for badge update"
+
+        # Check if README.md has changes
+        if git diff --quiet HEAD~1 README.md; then
+            echo "No badge changes to commit"
         else
             git add README.md
-            git commit -m "📊 Update README badges [skip ci]"
-            git push
+            git commit -m "📊 Update README badges [skip ci]" || echo "No changes to commit"
         fi
+
+        # Restore stashed changes if any
+        git stash pop || echo "No stash to restore"
 
   # ============================================================================
   # Release Validation
