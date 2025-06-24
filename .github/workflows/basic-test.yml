@@ -1,0 +1,59 @@
+name: Basic Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  basic-test:
+    name: Basic Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Test C library build
+      run: |
+        echo "Testing basic build..."
+        make clean
+        make
+        echo "Build successful!"
+
+    - name: Test basic functionality
+      run: |
+        echo '{"test": "data"}' | ./bin/json_tools -f
+        echo "Basic test passed!"
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Test Python package build
+      run: |
+        cd py-lib
+        python -m pip install --upgrade pip
+        pip install setuptools wheel
+        python setup.py build_ext --inplace
+        echo "Python build successful!"
+
+    - name: Test Python functionality
+      run: |
+        cd py-lib
+        python -c "
+        import cjson_tools
+        import json
+        
+        data = {'test': 'data'}
+        result = cjson_tools.flatten_json(json.dumps(data))
+        print('✅ Python test passed:', result)
+        "
