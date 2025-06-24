@@ -1,6 +1,7 @@
 #include "../include/compiler_hints.h"
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 // Michael & Scott lock-free queue for better threading performance
 typedef struct QueueNode {
