@@ -30,6 +30,9 @@ extra_link_args = []
 # Check if we're on Windows
 is_windows = platform.system() == "Windows"
 
+# Initialize libraries list
+libraries = []
+
 if not is_windows:
     # Unix-like systems (Linux, macOS) with advanced optimizations
     libraries.append("pthread")
@@ -60,6 +63,7 @@ else:
     # Windows-specific configuration with optimizations
     extra_compile_args = ["/std:c11", "/O2", "/GL", "/DNDEBUG"]  # MSVC optimizations
     extra_link_args = ["/LTCG"]  # Link-time code generation
+    libraries = ["kernel32"]  # Windows threading libraries
 
 # Define the extension module
 cjson_tools_module = Extension(

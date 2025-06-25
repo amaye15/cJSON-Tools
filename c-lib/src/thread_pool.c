@@ -4,11 +4,37 @@
 #include <stdio.h>
 
 #ifdef _WIN32
+#include <malloc.h>
+#endif
+
+#ifdef _WIN32
 // Windows threading wrapper functions
+typedef struct {
+    void* (*start_routine)(void*);
+    void* arg;
+} win_thread_data_t;
+
+static DWORD WINAPI win_thread_wrapper(LPVOID param) {
+    win_thread_data_t* data = (win_thread_data_t*)param;
+    void* (*start_routine)(void*) = data->start_routine;
+    void* arg = data->arg;
+    free(data);
+    start_routine(arg);
+    return 0;
+}
+
 static int pthread_create(pthread_t* thread, void* attr, void* (*start_routine)(void*), void* arg) {
     (void)attr; // Unused parameter
-    *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)start_routine, arg, 0, NULL);
-    return (*thread == NULL) ? -1 : 0;
+    win_thread_data_t* data = malloc(sizeof(win_thread_data_t));
+    if (!data) return -1;
+    data->start_routine = start_routine;
+    data->arg = arg;
+    *thread = CreateThread(NULL, 0, win_thread_wrapper, data, 0, NULL);
+    if (*thread == NULL) {
+        free(data);
+        return -1;
+    }
+    return 0;
 }
 
 static int pthread_join(pthread_t thread, void** retval) {
