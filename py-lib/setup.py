@@ -133,7 +133,7 @@ except FileNotFoundError:
 
 setup(
     name="cjson-tools",
-    version="1.4.2",
+    version="1.5.0",
     description="Python bindings for the cJSON-Tools C library",
     long_description=long_description,
     long_description_content_type="text/markdown",
