@@ -31,6 +31,7 @@ jobs:
       run: |
         cd py-lib
         python -m pip install --upgrade pip
+        python setup.py build_ext --inplace
         pip install -e .
         pip install safety bandit semgrep
 
@@ -106,8 +107,8 @@ jobs:
       run: |
         cd py-lib
         python -m pip install --upgrade pip
-        pip install build
-        python -m build
+        pip install setuptools wheel
+        python setup.py build_ext --inplace
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
@@ -198,10 +199,11 @@ jobs:
     - name: Check Python dependencies licenses
       run: |
         cd py-lib
+        python setup.py build_ext --inplace
         pip install -e .
         pip-licenses --format=json --output-file=licenses.json
         pip-licenses --format=markdown --output-file=licenses.md
-        
+
         # Check for problematic licenses
         pip-licenses --fail-on="GPL v3" --fail-on="AGPL v3" || true
 
