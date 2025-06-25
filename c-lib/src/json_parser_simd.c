@@ -18,6 +18,52 @@
 #include <immintrin.h>
 #endif
 
+#ifdef __aarch64__
+#include <arm_neon.h>
+#endif
+
+// Runtime CPU feature detection
+static int has_avx2 = -1;
+static int has_sse2 = -1;
+static int has_neon = -1;
+
+static void detect_cpu_features(void) {
+    if (has_avx2 == -1) {
+#ifdef __x86_64__
+        #ifdef __GNUC__
+        unsigned int eax, ebx, ecx, edx;
+
+        // Check for AVX2 support
+        if (__builtin_cpu_supports("avx2")) {
+            has_avx2 = 1;
+        } else {
+            has_avx2 = 0;
+        }
+
+        // Check for SSE2 support
+        if (__builtin_cpu_supports("sse2")) {
+            has_sse2 = 1;
+        } else {
+            has_sse2 = 0;
+        }
+        #else
+        // Fallback for non-GCC compilers
+        has_avx2 = 0;
+        has_sse2 = 0;
+        #endif
+#elif defined(__aarch64__)
+        // ARM NEON is standard on AArch64
+        has_neon = 1;
+        has_avx2 = 0;
+        has_sse2 = 0;
+#else
+        has_avx2 = 0;
+        has_sse2 = 0;
+        has_neon = 0;
+#endif
+    }
+}
+
 // Vectorized whitespace skipping
 HOT_PATH static const char* skip_whitespace_simd(const char* str, size_t len) {
 #ifdef __AVX2__
@@ -218,43 +264,108 @@ HOT_PATH static int is_valid_number_simd(const char* str, size_t len) {
     return 1;
 }
 
+// ARM NEON implementation
+#ifdef __aarch64__
+static size_t strlen_simd_neon(const char* str) {
+    const uint8x16_t zero = vdupq_n_u8(0);
+    size_t len = 0;
+
+    // Process 16 bytes at a time
+    while (1) {
+        uint8x16_t chunk = vld1q_u8((const uint8_t*)(str + len));
+        uint8x16_t cmp = vceqq_u8(chunk, zero);
+
+        // Check if any byte is zero
+        uint64x2_t mask = vreinterpretq_u64_u8(cmp);
+        uint64_t low = vgetq_lane_u64(mask, 0);
+        uint64_t high = vgetq_lane_u64(mask, 1);
+
+        if (low || high) {
+            // Found null terminator, find exact position
+            for (int i = 0; i < 16; i++) {
+                if (str[len + i] == 0) return len + i;
+            }
+        }
+        len += 16;
+
+        // Safety check to prevent infinite loops
+        if (len > 1000000) break;
+    }
+
+    // Fallback to standard strlen
+    return strlen(str);
+}
+#endif
+
 // Optimized string length calculation with SIMD
 HOT_PATH size_t strlen_simd(const char* str) {
     if (!str) return 0;
 
-#ifdef __AVX2__
-    // For safety, use standard strlen for short strings to avoid reading past boundaries
-    // Only use SIMD for longer strings where we can safely read 32-byte chunks
-    const char* start = str;
+    // Add CPU feature detection
+    detect_cpu_features();
 
-    // First, do a quick scan to find approximate length or early termination
-    const char* ptr = str;
-    while (*ptr && (ptr - str) < 32) {
-        ptr++;
+    // Use function multi-versioning for best performance
+#ifdef __aarch64__
+    if (has_neon) {
+        return strlen_simd_neon(str);
     }
-
-    // If string is short (< 32 bytes), use standard strlen
-    if (*ptr == '\0') {
-        return ptr - str;
-    }
-
-    // String is longer, safe to use SIMD
-    const __m256i zero = _mm256_setzero_si256();
-    size_t len = 0;
-
-    while (1) {
-        __m256i chunk = _mm256_loadu_si256((__m256i*)(str + len));
-        __m256i cmp = _mm256_cmpeq_epi8(chunk, zero);
-        uint32_t mask = _mm256_movemask_epi8(cmp);
-
-        if (mask != 0) {
-            return len + __builtin_ctz(mask);
-        }
-        len += 32;
-    }
-#else
-    return strlen(str);
 #endif
+
+#ifdef __AVX2__
+    if (has_avx2) {
+        // For safety, use standard strlen for short strings to avoid reading past boundaries
+        // Only use SIMD for longer strings where we can safely read 32-byte chunks
+        const char* start = str;
+
+        // First, do a quick scan to find approximate length or early termination
+        const char* ptr = str;
+        while (*ptr && (ptr - str) < 32) {
+            ptr++;
+        }
+
+        // If string is short (< 32 bytes), use standard strlen
+        if (*ptr == '\0') {
+            return ptr - str;
+        }
+
+        // String is longer, safe to use SIMD
+        const __m256i zero = _mm256_setzero_si256();
+        size_t len = 0;
+
+        while (1) {
+            __m256i chunk = _mm256_loadu_si256((__m256i*)(str + len));
+            __m256i cmp = _mm256_cmpeq_epi8(chunk, zero);
+            uint32_t mask = _mm256_movemask_epi8(cmp);
+
+            if (mask != 0) {
+                return len + __builtin_ctz(mask);
+            }
+            len += 32;
+        }
+    }
+#endif
+
+#ifdef __SSE2__
+    if (has_sse2) {
+        // SSE2 fallback implementation
+        const __m128i zero = _mm_setzero_si128();
+        size_t len = 0;
+
+        while (1) {
+            __m128i chunk = _mm_loadu_si128((__m128i*)(str + len));
+            __m128i cmp = _mm_cmpeq_epi8(chunk, zero);
+            uint32_t mask = _mm_movemask_epi8(cmp);
+
+            if (mask != 0) {
+                return len + __builtin_ctz(mask);
+            }
+            len += 16;
+        }
+    }
+#endif
+
+    // Fallback to standard strlen
+    return strlen(str);
 }
 
 // Export optimized functions for use in other modules

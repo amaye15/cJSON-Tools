@@ -68,6 +68,27 @@ int pthread_cond_destroy(pthread_cond_t* cond) {
 }
 #endif
 
+// Get number of CPU cores for thread affinity
+static int get_num_cores(void) {
+    static int num_cores = 0;
+    if (num_cores == 0) {
+#ifdef __linux__
+        num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(_WIN32) && defined(HAS_LARGE_PAGES)
+        SYSTEM_INFO sysinfo;
+        GetSystemInfo(&sysinfo);
+        num_cores = sysinfo.dwNumberOfProcessors;
+#elif defined(__APPLE__)
+        size_t size = sizeof(num_cores);
+        sysctlbyname("hw.ncpu", &num_cores, &size, NULL, 0);
+#else
+        num_cores = 4; // Default fallback
+#endif
+        if (num_cores <= 0) num_cores = 4;
+    }
+    return num_cores;
+}
+
 // Optimized worker thread function with reduced lock contention
 static void* worker_thread(void* arg) {
     ThreadPool* pool = (ThreadPool*)arg;

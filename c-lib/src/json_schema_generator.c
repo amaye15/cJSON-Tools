@@ -9,6 +9,53 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+
+// Hash table for optimized property lookup
+#define PROPERTY_HASH_SIZE 256  // Power of 2 for fast modulo
+
+typedef struct PropertyHashTable {
+    PropertyNode* buckets[PROPERTY_HASH_SIZE];
+    uint32_t count;
+} PropertyHashTable;
+
+// FNV-1a hash function for better distribution
+static inline uint32_t hash_property_name(const char* name) {
+    uint32_t hash = 2166136261u;
+    while (*name) {
+        hash ^= (uint8_t)*name++;
+        hash *= 16777619u;
+    }
+    return hash & (PROPERTY_HASH_SIZE - 1);  // Fast modulo with power of 2
+}
+
+// Optimized property lookup using hash table
+static PropertyNode* find_property_optimized(PropertyHashTable* table, const char* name) {
+    uint32_t bucket = hash_property_name(name);
+    PropertyNode* prop = table->buckets[bucket];
+
+    while (prop) {
+        // Use likely/unlikely hints for better branch prediction
+        if (__builtin_expect(strcmp(prop->name, name) == 0, 1)) {
+            return prop;
+        }
+        prop = prop->next;
+    }
+    return NULL;
+}
+
+// Add property to hash table
+static void add_property_to_hash(PropertyHashTable* table, PropertyNode* prop) {
+    uint32_t bucket = hash_property_name(prop->name);
+    prop->next = table->buckets[bucket];
+    table->buckets[bucket] = prop;
+    table->count++;
+}
+
+// Initialize hash table
+static void init_property_hash_table(PropertyHashTable* table) {
+    memset(table->buckets, 0, sizeof(table->buckets));
+    table->count = 0;
+}
 #include <limits.h>
 
 #define MIN_OBJECTS_PER_THREAD 25   // Reduced for better parallelization

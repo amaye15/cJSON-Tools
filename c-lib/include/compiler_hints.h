@@ -62,6 +62,53 @@
 #define CPU_AVX512
 #endif
 
+// Platform-specific memory prefetching optimizations
+#if defined(__x86_64__) || defined(__i386__)
+    #define PREFETCH_L1(ptr) __builtin_prefetch(ptr, 0, 3)
+    #define PREFETCH_L2(ptr) __builtin_prefetch(ptr, 0, 2)
+    #define PREFETCH_L3(ptr) __builtin_prefetch(ptr, 0, 1)
+    #define PREFETCH_WRITE(ptr) __builtin_prefetch(ptr, 1, 3)
+    #define PREFETCH_NTA(ptr) __builtin_prefetch(ptr, 0, 0)
+#elif defined(__aarch64__)
+    #define PREFETCH_L1(ptr) __asm__ ("prfm pldl1keep, %0" :: "Q"(*(ptr)))
+    #define PREFETCH_L2(ptr) __asm__ ("prfm pldl2keep, %0" :: "Q"(*(ptr)))
+    #define PREFETCH_L3(ptr) __asm__ ("prfm pldl3keep, %0" :: "Q"(*(ptr)))
+    #define PREFETCH_WRITE(ptr) __asm__ ("prfm pstl1keep, %0" :: "Q"(*(ptr)))
+    #define PREFETCH_NTA(ptr) __asm__ ("prfm pldl1strm, %0" :: "Q"(*(ptr)))
+#else
+    #define PREFETCH_L1(ptr)
+    #define PREFETCH_L2(ptr)
+    #define PREFETCH_L3(ptr)
+    #define PREFETCH_WRITE(ptr)
+    #define PREFETCH_NTA(ptr)
+#endif
+
+// Cache line size detection
+ALWAYS_INLINE static size_t get_cache_line_size_hint(void) {
+#if defined(__x86_64__)
+    return 64; // Most x86_64 systems
+#elif defined(__aarch64__)
+    return 64; // Most ARM64 systems
+#else
+    return 64; // Safe default
+#endif
+}
+
+// Memory barriers for different architectures
+#if defined(__x86_64__) || defined(__i386__)
+    #define MEMORY_BARRIER() __asm__ volatile("mfence" ::: "memory")
+    #define READ_BARRIER() __asm__ volatile("lfence" ::: "memory")
+    #define WRITE_BARRIER() __asm__ volatile("sfence" ::: "memory")
+#elif defined(__aarch64__)
+    #define MEMORY_BARRIER() __asm__ volatile("dmb sy" ::: "memory")
+    #define READ_BARRIER() __asm__ volatile("dmb ld" ::: "memory")
+    #define WRITE_BARRIER() __asm__ volatile("dmb st" ::: "memory")
+#else
+    #define MEMORY_BARRIER() __sync_synchronize()
+    #define READ_BARRIER() __sync_synchronize()
+    #define WRITE_BARRIER() __sync_synchronize()
+#endif
+
 // CPU relaxation for spin loops
 ALWAYS_INLINE static void cpu_relax(void) {
 #ifdef __x86_64__

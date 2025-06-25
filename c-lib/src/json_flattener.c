@@ -85,6 +85,53 @@ void init_flattened_array(FlattenedArray* array, int initial_capacity) {
     array->pool_size = pool_size;
 }
 
+// Ultra-optimized key construction with computed goto for better branch prediction
+static inline void build_key_ultra_optimized(char* buffer, size_t buffer_size,
+                                            const char* prefix, const char* suffix,
+                                            int is_array_index, int index) {
+#ifdef __GNUC__
+    // Use computed goto for better branch prediction (GCC extension)
+    static void* dispatch_table[] = {
+        &&no_prefix_not_array,
+        &&no_prefix_array,
+        &&prefix_not_array,
+        &&prefix_array
+    };
+
+    int dispatch_index = (prefix ? 2 : 0) + (is_array_index ? 1 : 0);
+    goto *dispatch_table[dispatch_index];
+
+no_prefix_not_array:
+    strncpy(buffer, suffix, buffer_size - 1);
+    buffer[buffer_size - 1] = '\0';
+    return;
+
+no_prefix_array:
+    snprintf(buffer, buffer_size, "[%d]", index);
+    return;
+
+prefix_not_array: {
+    size_t prefix_len = strlen_simd(prefix);
+    size_t suffix_len = strlen_simd(suffix);
+    if (prefix_len + suffix_len + 2 < buffer_size) {
+        memcpy(buffer, prefix, prefix_len);
+        buffer[prefix_len] = '.';
+        memcpy(buffer + prefix_len + 1, suffix, suffix_len + 1);
+    } else {
+        snprintf(buffer, buffer_size, "%s.%s", prefix, suffix);
+    }
+    return;
+}
+
+prefix_array:
+    snprintf(buffer, buffer_size, "%.*s[%d]", (int)strlen_simd(prefix), prefix, index);
+    return;
+#else
+    // Fallback for non-GCC compilers
+    build_key_optimized(buffer, buffer_size, prefix, suffix, is_array_index, index);
+#endif
+}
+
 // Optimized key construction with better performance
 static inline void build_key_optimized(char* buffer, size_t buffer_size,
                                      const char* prefix, const char* suffix,

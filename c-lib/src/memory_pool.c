@@ -14,6 +14,47 @@
 #endif
 #endif
 
+// Enhanced platform-specific memory optimizations
+#if defined(__linux__)
+    #ifdef __has_include
+        #if __has_include(<linux/mman.h>)
+            #include <linux/mman.h>  // For MAP_HUGE_*
+            #define HAS_TRANSPARENT_HUGEPAGES 1
+        #endif
+    #endif
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+    #define HAS_SUPERPAGE_SUPPORT 1
+#elif defined(_WIN32)
+    #include <windows.h>
+    #define HAS_LARGE_PAGES 1
+#endif
+
+// CPU cache line detection
+static size_t get_cache_line_size(void) {
+    static size_t cache_line_size = 0;
+    if (cache_line_size == 0) {
+#if defined(__linux__)
+        long size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+        cache_line_size = (size > 0) ? (size_t)size : 64;
+#elif defined(_WIN32) && defined(HAS_LARGE_PAGES)
+        SYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer[256];
+        DWORD length = sizeof(buffer);
+        if (GetLogicalProcessorInformation(buffer, &length)) {
+            for (DWORD i = 0; i < length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION); i++) {
+                if (buffer[i].Relationship == RelationCache && buffer[i].Cache.Level == 1) {
+                    cache_line_size = buffer[i].Cache.LineSize;
+                    break;
+                }
+            }
+        }
+        if (cache_line_size == 0) cache_line_size = 64;
+#else
+        cache_line_size = 64; // Default assumption
+#endif
+    }
+    return cache_line_size;
+}
+
 // For aligned_alloc - only define if not available
 #if !defined(__APPLE__) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L)
 #if defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
@@ -44,8 +85,21 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
     SlabAllocator* allocator = malloc(sizeof(SlabAllocator));
     if (!allocator) return NULL;
 
-    allocator->object_size = ALIGN_TO_CACHE(object_size);
-    allocator->objects_per_slab = 4096 / allocator->object_size;
+    // Optimize alignment based on actual cache line size
+    size_t cache_line_size = get_cache_line_size();
+    allocator->object_size = (object_size + cache_line_size - 1) & ~(cache_line_size - 1);
+
+    // Optimize slab size for better memory utilization
+    size_t optimal_slab_size = 4096;
+#ifdef HAS_TRANSPARENT_HUGEPAGES
+    // Use 2MB huge pages on Linux if available
+    optimal_slab_size = 2 * 1024 * 1024;
+#elif defined(HAS_LARGE_PAGES)
+    // Use large pages on Windows if available
+    optimal_slab_size = 2 * 1024 * 1024;
+#endif
+
+    allocator->objects_per_slab = optimal_slab_size / allocator->object_size;
     if (allocator->objects_per_slab < 1) allocator->objects_per_slab = 1;
 
     // Calculate how many slabs we need for initial_objects

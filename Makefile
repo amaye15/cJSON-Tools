@@ -1,13 +1,48 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 \
-         -O3 -march=native -mtune=native \
-         -flto=auto \
-         -ffast-math -funroll-loops \
-         -fomit-frame-pointer \
-         -finline-functions \
-         -fno-stack-protector \
-         -DNDEBUG \
-         -I./c-lib/include
+CFLAGS_BASE = -Wall -Wextra -std=c99 -I./c-lib/include
+
+# Platform-specific optimizations
+UNAME_S := $(shell uname -s)
+UNAME_P := $(shell uname -p)
+
+ifeq ($(UNAME_S),Linux)
+    # Linux-specific optimizations
+    CFLAGS_OPT = -O3 -march=native -mtune=native -flto=auto \
+                 -ffast-math -funroll-loops -fomit-frame-pointer \
+                 -finline-functions -fno-stack-protector \
+                 -ftree-vectorize -fprefetch-loop-arrays \
+                 -fprofile-arcs -ftest-coverage \
+                 -DNDEBUG -DUSE_HUGE_PAGES
+
+    # Enable profile-guided optimization if profile data exists
+    ifneq (,$(wildcard profile.gcda))
+        CFLAGS_OPT += -fprofile-use=profile.gcda
+    endif
+
+else ifeq ($(UNAME_S),Darwin)
+    # macOS optimizations
+    CFLAGS_OPT = -O3 -flto=full -funroll-loops \
+                 -fomit-frame-pointer -finline-functions \
+                 -DNDEBUG
+
+    # Universal binary support
+    ifeq ($(ARCH),universal)
+        CFLAGS_OPT += -arch x86_64 -arch arm64
+    else
+        CFLAGS_OPT += -march=native -mtune=native
+    endif
+
+else ifeq ($(UNAME_S),FreeBSD)
+    # FreeBSD optimizations
+    CFLAGS_OPT = -O3 -march=native -mtune=native \
+                 -funroll-loops -fomit-frame-pointer \
+                 -DNDEBUG -DHAS_SUPERPAGE_SUPPORT
+else
+    # Default optimizations for other platforms
+    CFLAGS_OPT = -O3 -funroll-loops -fomit-frame-pointer -DNDEBUG
+endif
+
+CFLAGS = $(CFLAGS_BASE) $(CFLAGS_OPT)
 
 # Profile-guided optimization support
 CFLAGS_PGO = $(CFLAGS) -fprofile-generate
