@@ -127,8 +127,22 @@ prefix_array:
     snprintf(buffer, buffer_size, "%.*s[%d]", (int)strlen_simd(prefix), prefix, index);
     return;
 #else
-    // Fallback for non-GCC compilers
-    build_key_optimized(buffer, buffer_size, prefix, suffix, is_array_index, index);
+    // Fallback for non-GCC compilers - use simple implementation
+    if (!prefix) {
+        if (is_array_index) {
+            snprintf(buffer, buffer_size, "[%d]", index);
+        } else {
+            strncpy(buffer, suffix, buffer_size - 1);
+            buffer[buffer_size - 1] = '\0';
+        }
+        return;
+    }
+
+    if (is_array_index) {
+        snprintf(buffer, buffer_size, "%s[%d]", prefix, index);
+    } else {
+        snprintf(buffer, buffer_size, "%s.%s", prefix, suffix);
+    }
 #endif
 }
 

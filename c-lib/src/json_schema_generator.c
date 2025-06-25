@@ -86,7 +86,7 @@ static PropertyNode* find_property_optimized(PropertyHashTableOptimized* table, 
 
     while (prop) {
         // Use likely/unlikely hints for better branch prediction
-        if (__builtin_expect(strcmp(prop->name, name) == 0, 1)) {
+        if (LIKELY(strcmp(prop->name, name) == 0)) {
             return prop;
         }
         prop = prop->next;

@@ -1,6 +1,11 @@
 #ifndef COMPILER_HINTS_H
 #define COMPILER_HINTS_H
 
+#ifdef _MSC_VER
+#include <intrin.h>  // For MSVC intrinsics
+#include <immintrin.h>  // For _mm_pause
+#endif
+
 // Advanced compiler hints for better optimization
 #ifdef __GNUC__
 #define FLATTEN __attribute__((flatten))
@@ -10,8 +15,14 @@
 #define CONST_FUNC __attribute__((const))
 #define HOT_PATH __attribute__((hot))
 #define COLD_PATH __attribute__((cold))
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#if defined(__GNUC__) || defined(__clang__)
+    #define LIKELY(x) __builtin_expect(!!(x), 1)
+    #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    // MSVC and other compilers don't have __builtin_expect
+    #define LIKELY(x) (x)
+    #define UNLIKELY(x) (x)
+#endif
 #define ASSUME_ALIGNED(ptr, alignment) __builtin_assume_aligned(ptr, alignment)
 #define PREFETCH_READ(ptr) __builtin_prefetch(ptr, 0, 3)
 #ifndef PREFETCH_WRITE
@@ -101,31 +112,58 @@ ALWAYS_INLINE static size_t get_cache_line_size_hint(void) {
 
 // Memory barriers for different architectures
 #ifndef MEMORY_BARRIER
-#if defined(__x86_64__) || defined(__i386__)
-    #define MEMORY_BARRIER() __asm__ volatile("mfence" ::: "memory")
-    #define READ_BARRIER() __asm__ volatile("lfence" ::: "memory")
-    #define WRITE_BARRIER() __asm__ volatile("sfence" ::: "memory")
-#elif defined(__aarch64__)
-    #define MEMORY_BARRIER() __asm__ volatile("dmb sy" ::: "memory")
-    #define READ_BARRIER() __asm__ volatile("dmb ld" ::: "memory")
-    #define WRITE_BARRIER() __asm__ volatile("dmb st" ::: "memory")
+#if defined(_MSC_VER)
+    // MSVC intrinsics (intrin.h already included above)
+    #define MEMORY_BARRIER() _ReadWriteBarrier()
+    #define READ_BARRIER() _ReadBarrier()
+    #define WRITE_BARRIER() _WriteBarrier()
+#elif defined(__GNUC__) || defined(__clang__)
+    // GCC/Clang inline assembly
+    #if defined(__x86_64__) || defined(__i386__)
+        #define MEMORY_BARRIER() __asm__ volatile("mfence" ::: "memory")
+        #define READ_BARRIER() __asm__ volatile("lfence" ::: "memory")
+        #define WRITE_BARRIER() __asm__ volatile("sfence" ::: "memory")
+    #elif defined(__aarch64__)
+        #define MEMORY_BARRIER() __asm__ volatile("dmb sy" ::: "memory")
+        #define READ_BARRIER() __asm__ volatile("dmb ld" ::: "memory")
+        #define WRITE_BARRIER() __asm__ volatile("dmb st" ::: "memory")
+    #else
+        #define MEMORY_BARRIER() __sync_synchronize()
+        #define READ_BARRIER() __sync_synchronize()
+        #define WRITE_BARRIER() __sync_synchronize()
+    #endif
 #else
-    #define MEMORY_BARRIER() __sync_synchronize()
-    #define READ_BARRIER() __sync_synchronize()
-    #define WRITE_BARRIER() __sync_synchronize()
+    // Fallback for other compilers
+    #define MEMORY_BARRIER()
+    #define READ_BARRIER()
+    #define WRITE_BARRIER()
 #endif
 #endif
 
 // CPU relaxation for spin loops
 ALWAYS_INLINE static void cpu_relax(void) {
-#ifdef __x86_64__
-    __asm__ volatile("pause" ::: "memory");
-#elif defined(__aarch64__)
-    __asm__ volatile("yield" ::: "memory");
-#elif defined(__powerpc__)
-    __asm__ volatile("or 27,27,27" ::: "memory");
+#if defined(_MSC_VER)
+    // MSVC syntax
+    #if defined(_M_X64) || defined(_M_IX86)
+        _mm_pause();
+    #else
+        // No-op for other architectures on MSVC
+        (void)0;
+    #endif
+#elif defined(__GNUC__) || defined(__clang__)
+    // GCC/Clang syntax
+    #ifdef __x86_64__
+        __asm__ volatile("pause" ::: "memory");
+    #elif defined(__aarch64__)
+        __asm__ volatile("yield" ::: "memory");
+    #elif defined(__powerpc__)
+        __asm__ volatile("or 27,27,27" ::: "memory");
+    #else
+        __asm__ volatile("" ::: "memory");
+    #endif
 #else
-    __asm__ volatile("" ::: "memory");
+    // Fallback for other compilers
+    (void)0;
 #endif
 }
 
