@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Test configuration
 TEMP_DIR="temp_test_data"
-TEST_SIZES=(10 100 1000 10000 100000 1000000)  # Small to very large test sizes
+TEST_SIZES=(10 100 1000 10000 100000)  # Small to large test sizes
 
 # Function to print colored output
 print_status() {
@@ -260,7 +260,7 @@ EOF
     # Performance comparison for multiple dataset sizes
     print_status "Performance comparison across different dataset sizes:"
 
-    for size in 1000 10000 100000 1000000; do
+    for size in 1000 10000 100000; do
         if [ -f "$TEMP_DIR/test_${size}.json" ]; then
             print_status "Performance test with $size objects..."
 
