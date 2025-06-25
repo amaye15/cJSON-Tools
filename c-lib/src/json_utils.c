@@ -4,12 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Platform-specific includes
+// Simplified Windows implementation - avoid complex header conflicts
 #ifdef _WIN32
-    #include <windows.h>
-    #include <io.h>
     #include <process.h>
-    // Windows equivalents for Unix functions
+
+    // Simple Windows implementation without advanced features
+    static long msvc_sysconf(int name) {
+        (void)name; // Suppress unused parameter warning
+        return 4; // Default to 4 cores for Windows
+    }
+
     #define sysconf(x) msvc_sysconf(x)
     #define _SC_NPROCESSORS_ONLN 1
 #else
@@ -21,59 +25,7 @@
     #endif
 #endif
 
-#ifdef _WIN32
-// Windows implementation of sysconf
-static long msvc_sysconf(int name) {
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
 
-    switch (name) {
-        case _SC_NPROCESSORS_ONLN:
-            return (long)sysinfo.dwNumberOfProcessors;
-        default:
-            return 1;
-    }
-}
-
-// Windows implementation of file operations
-static char* read_json_file_win32(const char* filename) {
-    HANDLE hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
-                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (hFile == INVALID_HANDLE_VALUE) {
-        return NULL;
-    }
-
-    LARGE_INTEGER fileSize;
-    if (!GetFileSizeEx(hFile, &fileSize)) {
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    if (fileSize.QuadPart > MAXDWORD) {
-        CloseHandle(hFile);
-        return NULL; // File too large
-    }
-
-    DWORD dwFileSize = (DWORD)fileSize.QuadPart;
-    char* buffer = (char*)malloc(dwFileSize + 1);
-    if (!buffer) {
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    DWORD bytesRead;
-    if (!ReadFile(hFile, buffer, dwFileSize, &bytesRead, NULL)) {
-        free(buffer);
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    buffer[bytesRead] = '\0';
-    CloseHandle(hFile);
-    return buffer;
-}
-#endif
 
 // Disable SIMD on Windows builds for initial PyPI release
 #ifdef THREADING_DISABLED
@@ -172,44 +124,8 @@ static char* read_json_file_mmap(const char* filename) {
 
     close(fd);
 #elif defined(_WIN32)
-    // Windows implementation using memory mapping
-    HANDLE hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
-                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (hFile == INVALID_HANDLE_VALUE) return NULL;
-
-    LARGE_INTEGER fileSize;
-    if (!GetFileSizeEx(hFile, &fileSize)) {
-        CloseHandle(hFile);
-        return NULL;
-    }
-
-    // Use memory mapping for files larger than 64KB
-    if (fileSize.QuadPart > 65536) {
-        HANDLE hMapFile = CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-        if (hMapFile == NULL) {
-            CloseHandle(hFile);
-            return NULL;
-        }
-
-        LPVOID mapped = MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, 0);
-        CloseHandle(hMapFile);
-        CloseHandle(hFile);
-
-        if (mapped == NULL) return NULL;
-
-        // Copy to heap memory and unmap
-        char* buffer = malloc((size_t)fileSize.QuadPart + 1);
-        if (buffer) {
-            memcpy(buffer, mapped, (size_t)fileSize.QuadPart);
-            buffer[fileSize.QuadPart] = '\0';
-        }
-        UnmapViewOfFile(mapped);
-
-        return buffer;
-    }
-
-    CloseHandle(hFile);
+    // Disable memory mapping on Windows for now to avoid header conflicts
+    (void)filename; // Suppress unused parameter warning
 #endif
     return NULL; // Fall back to regular read
 }
@@ -222,12 +138,7 @@ char* read_json_file(const char* filename) {
     char* result = read_json_file_mmap(filename);
     if (result) return result;
 
-#ifdef _WIN32
-    // Try Windows-specific implementation
-    result = read_json_file_win32(filename);
-    if (result) return result;
-#endif
-
+    // Fall back to standard FILE* operations for all platforms
     FILE* file = fopen(filename, "rb"); // Use binary mode for better performance
     if (UNLIKELY(!file)) {
         fprintf(stderr, "Error: Could not open file %s\n", filename);
