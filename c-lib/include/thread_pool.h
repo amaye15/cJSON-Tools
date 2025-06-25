@@ -5,8 +5,8 @@
 #include <stddef.h>  // For size_t
 
 // Cross-platform threading support
-#ifdef _WIN32
-    // Windows threading disabled for initial PyPI release
+#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+    // Native Windows (MSVC) - threading disabled for initial PyPI release
     // Will be implemented in future version
     #define THREADING_DISABLED
     typedef int pthread_t;
@@ -28,7 +28,12 @@
     int pthread_cond_signal(pthread_cond_t* cond);
     int pthread_cond_broadcast(pthread_cond_t* cond);
     int pthread_cond_destroy(pthread_cond_t* cond);
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+    // MinGW has real pthread support, but disable threading for initial release
+    #define THREADING_DISABLED
+    #include <pthread.h>
 #else
+    // Unix-like systems with full pthread support
     #include <pthread.h>
 #endif
 

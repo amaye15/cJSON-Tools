@@ -32,7 +32,44 @@ is_windows = platform.system() == "Windows"
 # Initialize libraries list
 libraries = []
 
-if not is_windows:
+# Check for cross-compilation to Windows with MinGW
+is_mingw_cross_compile = (
+    os.environ.get("CC", "").startswith("x86_64-w64-mingw32") or
+    os.environ.get("CC", "").startswith("i686-w64-mingw32") or
+    os.environ.get("CFLAGS", "").find("-D_WIN32") != -1
+)
+
+if is_windows:
+    # Native Windows build with MSVC
+    extra_compile_args = [
+        "/std:c11",
+        "/O2",
+        "/GL",
+        "/DNDEBUG",
+        "/DTHREADING_DISABLED",
+    ]  # MSVC optimizations
+    extra_link_args = ["/LTCG"]  # Link-time code generation
+    # Note: Threading disabled on Windows for initial release
+    # Add support for __declspec attributes
+    extra_compile_args.append(
+        "/experimental:external"
+    )  # Enable external headers support
+elif is_mingw_cross_compile:
+    # Cross-compilation for Windows using MinGW/GCC
+    libraries.append("pthread")  # MinGW has pthread support
+    extra_compile_args = [
+        "-std=c99",
+        "-Wall",
+        "-Wextra",
+        "-O3",
+        "-DNDEBUG",
+        "-D_WIN32",
+        "-DTHREADING_DISABLED",
+        "-fms-extensions",
+        "-Wno-ignored-attributes",
+    ]
+    extra_link_args = ["-static-libgcc", "-static-libstdc++", "-lpthread"]
+else:
     # Unix-like systems (Linux, macOS) with advanced optimizations
     libraries.append("pthread")
 
@@ -58,25 +95,6 @@ if not is_windows:
         # Linux - use march=native for better performance
         extra_compile_args.extend(["-march=native", "-mtune=native"])
         extra_link_args = ["-flto", "-Wl,--gc-sections"]
-else:
-    # Windows-specific configuration with optimizations
-    extra_compile_args = [
-        "/std:c11",
-        "/O2",
-        "/GL",
-        "/DNDEBUG",
-        "/DTHREADING_DISABLED",
-    ]  # MSVC optimizations
-    extra_link_args = ["/LTCG"]  # Link-time code generation
-    # Note: Threading disabled on Windows for initial release
-    # Add support for __declspec attributes
-    if platform.system() == "Windows":
-        extra_compile_args.append(
-            "/experimental:external"
-        )  # Enable external headers support
-    else:
-        # For cross-compilation testing with GCC/Clang
-        extra_compile_args.extend(["-fms-extensions", "-Wno-ignored-attributes"])
 
 # Define the extension module
 cjson_tools_module = Extension(

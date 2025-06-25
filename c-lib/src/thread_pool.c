@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef THREADING_DISABLED
-// Simplified Windows implementation - threading disabled for initial release
+#if defined(THREADING_DISABLED) && defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+// Native Windows (MSVC) implementation - threading disabled for initial release
 int pthread_create(pthread_t* thread, void* attr, void* (*start_routine)(void*), void* arg) {
     (void)thread; (void)attr; (void)start_routine; (void)arg;
     // Execute synchronously on Windows for now
