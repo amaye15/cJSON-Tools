@@ -8,7 +8,7 @@
 #include "../../c-lib/include/thread_pool.h"
 #include "../../c-lib/include/memory_pool.h"
 
-#define MODULE_VERSION "1.3.3"
+#define MODULE_VERSION "1.4.0"
 
 /**
  * Flatten a JSON string
