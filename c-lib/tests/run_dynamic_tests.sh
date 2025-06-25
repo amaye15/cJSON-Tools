@@ -273,20 +273,36 @@ EOF
             ../../bin/json_tools -f -t 4 "$TEMP_DIR/test_${size}.json" > /dev/null
             mt_time=$(echo "$(date +%s.%N) - $start_time" | bc -l)
 
-            # Calculate throughput (objects per second)
-            st_throughput=$(echo "scale=0; $size / $st_time" | bc -l)
-            mt_throughput=$(echo "scale=0; $size / $mt_time" | bc -l)
+            # Calculate throughput (objects per second) with zero-time protection
+            if (( $(echo "$st_time > 0.000001" | bc -l) )); then
+                st_throughput=$(echo "scale=0; $size / $st_time" | bc -l)
+            else
+                st_throughput="∞"
+                st_time="<0.000001"
+            fi
+
+            if (( $(echo "$mt_time > 0.000001" | bc -l) )); then
+                mt_throughput=$(echo "scale=0; $size / $mt_time" | bc -l)
+            else
+                mt_throughput="∞"
+                mt_time="<0.000001"
+            fi
 
             print_success "  $size objects - Flattening:"
             print_success "    Single-threaded: ${st_time}s (${st_throughput} obj/s)"
             print_success "    Multi-threaded:  ${mt_time}s (${mt_throughput} obj/s)"
 
-            if (( $(echo "$st_time > $mt_time" | bc -l) )); then
-                speedup=$(echo "scale=2; $st_time / $mt_time" | bc -l)
-                print_success "    Speedup: ${speedup}x"
+            # Only calculate speedup if both times are measurable
+            if (( $(echo "$st_time > 0.000001" | bc -l) )) && (( $(echo "$mt_time > 0.000001" | bc -l) )); then
+                if (( $(echo "$st_time > $mt_time" | bc -l) )); then
+                    speedup=$(echo "scale=2; $st_time / $mt_time" | bc -l)
+                    print_success "    Speedup: ${speedup}x"
+                else
+                    slowdown=$(echo "scale=2; $mt_time / $st_time" | bc -l)
+                    print_warning "    Multi-threading slower by: ${slowdown}x"
+                fi
             else
-                slowdown=$(echo "scale=2; $mt_time / $st_time" | bc -l)
-                print_warning "    Multi-threading slower by: ${slowdown}x"
+                print_status "    Performance too fast to measure accurately"
             fi
             echo ""
         fi
