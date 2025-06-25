@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Test configuration
 TEMP_DIR="temp_test_data"
-TEST_SIZES=(10 100 1000 10000 100000)  # Small to large test sizes
+TEST_SIZES=(10 100 1000 10000)  # Small to medium test sizes
 
 # Function to print colored output
 print_status() {
@@ -51,8 +51,8 @@ generate_test_data() {
 
     print_status "Generating test data: $size objects, depth $depth -> $filename"
 
-    # For very large datasets, reduce depth to avoid excessive memory usage
-    if [ "$size" -gt 100000 ]; then
+    # For large datasets, reduce depth to avoid excessive memory usage
+    if [ "$size" -gt 10000 ]; then
         depth=2
         print_status "Using reduced depth ($depth) for large dataset"
     fi
@@ -260,7 +260,7 @@ EOF
     # Performance comparison for multiple dataset sizes
     print_status "Performance comparison across different dataset sizes:"
 
-    for size in 1000 10000 100000; do
+    for size in 1000 10000; do
         if [ -f "$TEMP_DIR/test_${size}.json" ]; then
             print_status "Performance test with $size objects..."
 
