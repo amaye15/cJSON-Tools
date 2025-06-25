@@ -214,7 +214,25 @@ HOT_PATH static int is_valid_number_simd(const char* str, size_t len) {
 
 // Optimized string length calculation with SIMD
 HOT_PATH size_t strlen_simd(const char* str) {
+    if (!str) return 0;
+
 #ifdef __AVX2__
+    // For safety, use standard strlen for short strings to avoid reading past boundaries
+    // Only use SIMD for longer strings where we can safely read 32-byte chunks
+    const char* start = str;
+
+    // First, do a quick scan to find approximate length or early termination
+    const char* ptr = str;
+    while (*ptr && (ptr - str) < 32) {
+        ptr++;
+    }
+
+    // If string is short (< 32 bytes), use standard strlen
+    if (*ptr == '\0') {
+        return ptr - str;
+    }
+
+    // String is longer, safe to use SIMD
     const __m256i zero = _mm256_setzero_si256();
     size_t len = 0;
 
