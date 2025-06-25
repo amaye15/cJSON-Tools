@@ -63,7 +63,7 @@ else:
     # Windows-specific configuration with optimizations
     extra_compile_args = ["/std:c11", "/O2", "/GL", "/DNDEBUG"]  # MSVC optimizations
     extra_link_args = ["/LTCG"]  # Link-time code generation
-    libraries = ["kernel32"]  # Windows threading libraries
+    # Note: Threading disabled on Windows for initial release
 
 # Define the extension module
 cjson_tools_module = Extension(

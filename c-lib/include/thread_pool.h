@@ -5,13 +5,14 @@
 
 // Cross-platform threading support
 #ifdef _WIN32
-    #include <windows.h>
-    #include <process.h>
-    typedef HANDLE pthread_t;
-    typedef CRITICAL_SECTION pthread_mutex_t;
-    typedef CONDITION_VARIABLE pthread_cond_t;
-    #define PTHREAD_MUTEX_INITIALIZER {0}
-    #define PTHREAD_COND_INITIALIZER CONDITION_VARIABLE_INIT
+    // Windows threading disabled for initial PyPI release
+    // Will be implemented in future version
+    #define THREADING_DISABLED
+    typedef int pthread_t;
+    typedef int pthread_mutex_t;
+    typedef int pthread_cond_t;
+    #define PTHREAD_MUTEX_INITIALIZER 0
+    #define PTHREAD_COND_INITIALIZER 0
 #else
     #include <pthread.h>
 #endif
