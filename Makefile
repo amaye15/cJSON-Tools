@@ -84,4 +84,34 @@ debug: CFLAGS = -Wall -Wextra -std=c99 -g -O0 -DDEBUG -I./c-lib/include
 debug: LIBS = -pthread
 debug: directories $(TARGET)
 
-.PHONY: all directories clean install uninstall pgo debug
+.PHONY: all directories clean install uninstall pgo debug format format-check lint dev-install setup-hooks
+
+# Python code formatting targets
+format:
+	@echo "🎨 Formatting Python code with Black..."
+	cd py-lib && python -m black .
+	@echo "📦 Sorting imports with isort..."
+	cd py-lib && python -m isort . --profile black
+	@echo "✅ Code formatting complete!"
+
+format-check:
+	@echo "🔍 Checking Python code formatting..."
+	cd py-lib && python -m black --check .
+	cd py-lib && python -m isort --check-only . --profile black
+	@echo "✅ Code formatting check passed!"
+
+lint:
+	@echo "🔍 Running linting checks..."
+	cd py-lib && python -m flake8 . --max-line-length=88 --extend-ignore=E203,W503
+	@echo "✅ Linting checks passed!"
+
+dev-install:
+	@echo "🛠️ Installing development environment..."
+	pip install black isort flake8 pytest pre-commit
+	cd py-lib && pip install -e .
+	@echo "✅ Development installation complete!"
+
+setup-hooks:
+	@echo "🪝 Installing pre-commit hooks..."
+	pre-commit install
+	@echo "✅ Pre-commit hooks installed!"

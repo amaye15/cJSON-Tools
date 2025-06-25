@@ -34,9 +34,9 @@ libraries = []
 
 # Check for cross-compilation to Windows with MinGW
 is_mingw_cross_compile = (
-    os.environ.get("CC", "").startswith("x86_64-w64-mingw32") or
-    os.environ.get("CC", "").startswith("i686-w64-mingw32") or
-    os.environ.get("CFLAGS", "").find("-D_WIN32") != -1
+    os.environ.get("CC", "").startswith("x86_64-w64-mingw32")
+    or os.environ.get("CC", "").startswith("i686-w64-mingw32")
+    or os.environ.get("CFLAGS", "").find("-D_WIN32") != -1
 )
 
 if is_windows:
