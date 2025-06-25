@@ -3,6 +3,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
+#ifndef THREADING_DISABLED
+#include <pthread.h>
+#include <unistd.h>
+#endif
+
 #if defined(THREADING_DISABLED) && defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 // Native Windows (MSVC) implementation - threading disabled for initial release
 int pthread_create(pthread_t* thread, void* attr, void* (*start_routine)(void*), void* arg) {
@@ -68,8 +77,8 @@ int pthread_cond_destroy(pthread_cond_t* cond) {
 }
 #endif
 
-// Get number of CPU cores for thread affinity
-static int get_num_cores(void) {
+// Get number of CPU cores for thread affinity (internal implementation)
+static int get_num_cores_internal(void) {
     static int num_cores = 0;
     if (num_cores == 0) {
 #ifdef __linux__

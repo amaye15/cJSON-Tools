@@ -14,7 +14,9 @@
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define ASSUME_ALIGNED(ptr, alignment) __builtin_assume_aligned(ptr, alignment)
 #define PREFETCH_READ(ptr) __builtin_prefetch(ptr, 0, 3)
+#ifndef PREFETCH_WRITE
 #define PREFETCH_WRITE(ptr) __builtin_prefetch(ptr, 1, 3)
+#endif
 #define RESTRICT __restrict__
 #define PACKED __attribute__((packed))
 #define ALIGNED(n) __attribute__((aligned(n)))
@@ -63,6 +65,7 @@
 #endif
 
 // Platform-specific memory prefetching optimizations
+#ifndef PREFETCH_L1
 #if defined(__x86_64__) || defined(__i386__)
     #define PREFETCH_L1(ptr) __builtin_prefetch(ptr, 0, 3)
     #define PREFETCH_L2(ptr) __builtin_prefetch(ptr, 0, 2)
@@ -82,8 +85,10 @@
     #define PREFETCH_WRITE(ptr)
     #define PREFETCH_NTA(ptr)
 #endif
+#endif
 
 // Cache line size detection
+#include <stddef.h>  // For size_t
 ALWAYS_INLINE static size_t get_cache_line_size_hint(void) {
 #if defined(__x86_64__)
     return 64; // Most x86_64 systems
@@ -95,6 +100,7 @@ ALWAYS_INLINE static size_t get_cache_line_size_hint(void) {
 }
 
 // Memory barriers for different architectures
+#ifndef MEMORY_BARRIER
 #if defined(__x86_64__) || defined(__i386__)
     #define MEMORY_BARRIER() __asm__ volatile("mfence" ::: "memory")
     #define READ_BARRIER() __asm__ volatile("lfence" ::: "memory")
@@ -107,6 +113,7 @@ ALWAYS_INLINE static size_t get_cache_line_size_hint(void) {
     #define MEMORY_BARRIER() __sync_synchronize()
     #define READ_BARRIER() __sync_synchronize()
     #define WRITE_BARRIER() __sync_synchronize()
+#endif
 #endif
 
 // CPU relaxation for spin loops
@@ -122,10 +129,7 @@ ALWAYS_INLINE static void cpu_relax(void) {
 #endif
 }
 
-// Memory barriers
-#define MEMORY_BARRIER() __asm__ volatile("" ::: "memory")
-#define READ_BARRIER() __asm__ volatile("" ::: "memory")
-#define WRITE_BARRIER() __asm__ volatile("" ::: "memory")
+// Memory barriers are defined above with platform-specific implementations
 
 // Loop unrolling hints
 #ifdef __GNUC__
