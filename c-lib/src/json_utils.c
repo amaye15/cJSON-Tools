@@ -3,12 +3,76 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
-#ifdef __unix__
-#include <sys/mman.h>
+// Platform-specific includes
+#ifdef _WIN32
+    #include <windows.h>
+    #include <io.h>
+    #include <process.h>
+    // Windows equivalents for Unix functions
+    #define sysconf(x) msvc_sysconf(x)
+    #define _SC_NPROCESSORS_ONLN 1
+#else
+    #include <unistd.h>
+    #include <sys/stat.h>
+    #include <fcntl.h>
+    #ifdef __unix__
+    #include <sys/mman.h>
+    #endif
+#endif
+
+#ifdef _WIN32
+// Windows implementation of sysconf
+static long msvc_sysconf(int name) {
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+
+    switch (name) {
+        case _SC_NPROCESSORS_ONLN:
+            return (long)sysinfo.dwNumberOfProcessors;
+        default:
+            return 1;
+    }
+}
+
+// Windows implementation of file operations
+static char* read_json_file_win32(const char* filename) {
+    HANDLE hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return NULL;
+    }
+
+    LARGE_INTEGER fileSize;
+    if (!GetFileSizeEx(hFile, &fileSize)) {
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    if (fileSize.QuadPart > MAXDWORD) {
+        CloseHandle(hFile);
+        return NULL; // File too large
+    }
+
+    DWORD dwFileSize = (DWORD)fileSize.QuadPart;
+    char* buffer = (char*)malloc(dwFileSize + 1);
+    if (!buffer) {
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    DWORD bytesRead;
+    if (!ReadFile(hFile, buffer, dwFileSize, &bytesRead, NULL)) {
+        free(buffer);
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    buffer[bytesRead] = '\0';
+    CloseHandle(hFile);
+    return buffer;
+}
 #endif
 
 // Disable SIMD on Windows builds for initial PyPI release
@@ -26,7 +90,7 @@
  * SIMD-optimized string duplication for better performance
  */
 static char* my_strdup_simd(const char* str) {
-    if (__builtin_expect(str == NULL, 0)) return NULL;
+    if (UNLIKELY(str == NULL)) return NULL;
 
     size_t len = strlen_simd(str);
     // Align allocation to 16 bytes for SIMD operations
@@ -38,7 +102,7 @@ static char* my_strdup_simd(const char* str) {
         return NULL;
     }
 
-    if (__builtin_expect(new_str == NULL, 0)) return NULL;
+    if (UNLIKELY(new_str == NULL)) return NULL;
 
     // Copy 16 bytes at a time using SIMD
     size_t simd_len = len & ~15;
@@ -57,7 +121,7 @@ static char* my_strdup_simd(const char* str) {
  * Optimized string duplication function with branch prediction
  */
 char* my_strdup(const char* str) {
-    if (__builtin_expect(str == NULL, 0)) return NULL;
+    if (UNLIKELY(str == NULL)) return NULL;
 
     size_t len = strlen_simd(str) + 1;
 
@@ -69,7 +133,7 @@ char* my_strdup(const char* str) {
 #endif
 
     char* new_str = (char*)malloc(len);
-    if (__builtin_expect(new_str == NULL, 0)) return NULL;
+    if (UNLIKELY(new_str == NULL)) return NULL;
 
     return (char*)memcpy(new_str, str, len);
 }
@@ -107,6 +171,45 @@ static char* read_json_file_mmap(const char* filename) {
     }
 
     close(fd);
+#elif defined(_WIN32)
+    // Windows implementation using memory mapping
+    HANDLE hFile = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) return NULL;
+
+    LARGE_INTEGER fileSize;
+    if (!GetFileSizeEx(hFile, &fileSize)) {
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    // Use memory mapping for files larger than 64KB
+    if (fileSize.QuadPart > 65536) {
+        HANDLE hMapFile = CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+        if (hMapFile == NULL) {
+            CloseHandle(hFile);
+            return NULL;
+        }
+
+        LPVOID mapped = MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, 0);
+        CloseHandle(hMapFile);
+        CloseHandle(hFile);
+
+        if (mapped == NULL) return NULL;
+
+        // Copy to heap memory and unmap
+        char* buffer = malloc((size_t)fileSize.QuadPart + 1);
+        if (buffer) {
+            memcpy(buffer, mapped, (size_t)fileSize.QuadPart);
+            buffer[fileSize.QuadPart] = '\0';
+        }
+        UnmapViewOfFile(mapped);
+
+        return buffer;
+    }
+
+    CloseHandle(hFile);
 #endif
     return NULL; // Fall back to regular read
 }
@@ -119,32 +222,38 @@ char* read_json_file(const char* filename) {
     char* result = read_json_file_mmap(filename);
     if (result) return result;
 
+#ifdef _WIN32
+    // Try Windows-specific implementation
+    result = read_json_file_win32(filename);
+    if (result) return result;
+#endif
+
     FILE* file = fopen(filename, "rb"); // Use binary mode for better performance
-    if (__builtin_expect(!file, 0)) {
+    if (UNLIKELY(!file)) {
         fprintf(stderr, "Error: Could not open file %s\n", filename);
         return NULL;
     }
 
     // Get file size
-    if (__builtin_expect(fseek(file, 0, SEEK_END) != 0, 0)) {
+    if (UNLIKELY(fseek(file, 0, SEEK_END) != 0)) {
         fclose(file);
         return NULL;
     }
 
     long file_size = ftell(file);
-    if (__builtin_expect(file_size < 0, 0)) {
+    if (UNLIKELY(file_size < 0)) {
         fclose(file);
         return NULL;
     }
 
-    if (__builtin_expect(fseek(file, 0, SEEK_SET) != 0, 0)) {
+    if (UNLIKELY(fseek(file, 0, SEEK_SET) != 0)) {
         fclose(file);
         return NULL;
     }
 
     // Allocate buffer with extra space for null terminator
     char* buffer = (char*)malloc(file_size + 1);
-    if (__builtin_expect(!buffer, 0)) {
+    if (UNLIKELY(!buffer)) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         fclose(file);
         return NULL;
@@ -203,7 +312,7 @@ int get_num_cores(void) {
  * Optimized thread count determination with better scaling
  */
 int get_optimal_threads(int requested_threads) {
-    if (__builtin_expect(requested_threads > 0, 1)) {
+    if (LIKELY(requested_threads > 0)) {
         // Cap at reasonable maximum to prevent resource exhaustion
         return requested_threads > 64 ? 64 : requested_threads;
     }

@@ -3,15 +3,22 @@
 #include <string.h>
 #include <stdatomic.h>
 
-#ifdef __unix__
-#include <sys/mman.h>
-#include <unistd.h>
-// Handle different MAP_ANONYMOUS definitions across platforms
-#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
-#define MAP_ANONYMOUS MAP_ANON
-#elif !defined(MAP_ANONYMOUS)
-#define MAP_ANONYMOUS 0x20
-#endif
+#ifdef _WIN32
+    #include <windows.h>
+    #include <malloc.h>
+    // Windows doesn't have MAP_ANONYMOUS
+    #define MAP_ANONYMOUS 0x20
+#else
+    #ifdef __unix__
+    #include <sys/mman.h>
+    #include <unistd.h>
+    // Handle different MAP_ANONYMOUS definitions across platforms
+    #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
+    #define MAP_ANONYMOUS MAP_ANON
+    #elif !defined(MAP_ANONYMOUS)
+    #define MAP_ANONYMOUS 0x20
+    #endif
+    #endif
 #endif
 
 // Enhanced platform-specific memory optimizations
