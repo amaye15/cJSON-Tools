@@ -126,7 +126,7 @@ jobs:
         results = []
         
         for size in sizes:
-            print(f'\\\\n📊 Testing {size} objects...')
+            print(f'\\n📊 Testing {size} objects...')
             
             # Generate test data
             test_data = []
@@ -212,7 +212,7 @@ jobs:
             writer.writeheader()
             writer.writerows(results)
         
-        print('\\\\n✅ Python benchmarks completed!')
+        print('\\n✅ Python benchmarks completed!')
         print(f'Results saved to python_benchmark_results.csv')
         "
 
@@ -385,17 +385,17 @@ jobs:
                 print(f'  - {imp}')
         
         # Summary
-        print(f'\\\\n📊 Summary:')
+        print(f'\\n📊 Summary:')
         print(f'  - Tested sizes: {len(current_results)}')
         print(f'  - Regressions: {len(regressions)}')
         print(f'  - Improvements: {len(improvements)}')
-        
+
         # Exit with error if regressions found
         if regressions:
-            print('\\\\n❌ Performance regression detected!')
+            print('\\n❌ Performance regression detected!')
             exit(1)
         else:
-            print('\\\\n✅ Performance validation passed!')
+            print('\\n✅ Performance validation passed!')
         "
 
     - name: Comment on PR with performance results
@@ -405,7 +405,7 @@ jobs:
         script: |
           const fs = require('fs');
           
-          let comment = '## 📊 Performance Benchmark Results\\\\n\\\\n';
+          let comment = '## 📊 Performance Benchmark Results\\n\\n';
           
           try {
             const reportPath = 'current-results/performance_report_linux.md';
@@ -413,13 +413,13 @@ jobs:
               const report = fs.readFileSync(reportPath, 'utf8');
               comment += report;
             } else {
-              comment += '❌ Performance report not found\\\\n';
+              comment += '❌ Performance report not found\\n';
             }
           } catch (error) {
-            comment += `❌ Error reading performance report: ${error.message}\\\\n`;
+            comment += `❌ Error reading performance report: ${error.message}\\n`;
           }
           
-          comment += '\\\\n---\\\\n';
+          comment += '\\n---\\n';
           comment += '*Performance benchmarks run automatically on every PR*';
           
           github.rest.issues.createComment({

@@ -4,6 +4,9 @@
 #include "../../c-lib/include/json_flattener.h"
 #include "../../c-lib/include/json_schema_generator.h"
 #include "../../c-lib/include/json_utils.h"
+#include "../../c-lib/include/simd_utils.h"
+#include "../../c-lib/include/thread_pool.h"
+#include "../../c-lib/include/memory_pool.h"
 
 #define MODULE_VERSION "1.3.3"
 
@@ -15,11 +18,12 @@ static PyObject* py_flatten_json(PyObject* self, PyObject* args, PyObject* kwarg
     const char* json_string;
     int use_threads = 0;
     int num_threads = 0;
+    int pretty_print = 0;
 
-    static char* kwlist[] = {"json_string", "use_threads", "num_threads", NULL};
+    static char* kwlist[] = {"json_string", "use_threads", "num_threads", "pretty_print", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|ii", kwlist,
-                                    &json_string, &use_threads, &num_threads)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|iii", kwlist,
+                                    &json_string, &use_threads, &num_threads, &pretty_print)) {
         return NULL;
     }
 
@@ -27,6 +31,10 @@ static PyObject* py_flatten_json(PyObject* self, PyObject* args, PyObject* kwarg
 
     // Release GIL during C computation for better parallelism
     Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
     result = flatten_json_string(json_string, use_threads, num_threads);
     Py_END_ALLOW_THREADS
 
@@ -35,11 +43,22 @@ static PyObject* py_flatten_json(PyObject* self, PyObject* args, PyObject* kwarg
         return NULL;
     }
 
+    // Apply pretty printing if requested
+    char* final_result = result;
+    if (pretty_print) {
+        cJSON* json = cJSON_Parse(result);
+        if (json) {
+            free(result);
+            final_result = cJSON_Print(json);
+            cJSON_Delete(json);
+        }
+    }
+
     // Convert the result to a Python string
-    PyObject* py_result = PyUnicode_FromString(result);
+    PyObject* py_result = PyUnicode_FromString(final_result);
 
     // Free the C string
-    free(result);
+    free(final_result);
 
     return py_result;
 }
@@ -52,11 +71,12 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
     PyObject* json_list;
     int use_threads = 1;
     int num_threads = 0;
+    int pretty_print = 0;
 
-    static char* kwlist[] = {"json_list", "use_threads", "num_threads", NULL};
+    static char* kwlist[] = {"json_list", "use_threads", "num_threads", "pretty_print", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|ii", kwlist,
-                                    &json_list, &use_threads, &num_threads)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|iii", kwlist,
+                                    &json_list, &use_threads, &num_threads, &pretty_print)) {
         return NULL;
     }
 
@@ -108,7 +128,16 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
     }
     
     // Flatten the batch
-    cJSON* flattened_array = flatten_json_batch(json_array, use_threads, num_threads);
+    cJSON* flattened_array;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    flattened_array = flatten_json_batch(json_array, use_threads, num_threads);
+    Py_END_ALLOW_THREADS
     
     // Free the input array (but not its contents, as they're now owned by flattened_array)
     cJSON_Delete(json_array);
@@ -129,7 +158,7 @@ static PyObject* py_flatten_json_batch(PyObject* self, PyObject* args, PyObject*
     // Add each flattened object to the result list using SET_ITEM for better performance
     for (int i = 0; i < array_size; i++) {
         cJSON* item = cJSON_GetArrayItem(flattened_array, i);
-        char* item_str = cJSON_Print(item);
+        char* item_str = pretty_print ? cJSON_Print(item) : cJSON_PrintUnformatted(item);
 
         if (item_str == NULL) {
             Py_DECREF(result_list);
@@ -177,6 +206,10 @@ static PyObject* py_generate_schema(PyObject* self, PyObject* args, PyObject* kw
 
     // Release GIL during C computation for better parallelism
     Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
     result = generate_schema_from_string(json_string, use_threads, num_threads);
     Py_END_ALLOW_THREADS
 
@@ -257,7 +290,16 @@ static PyObject* py_generate_schema_batch(PyObject* self, PyObject* args, PyObje
     }
     
     // Generate schema from the batch
-    cJSON* schema = generate_schema_from_batch(json_array, use_threads, num_threads);
+    cJSON* schema;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    schema = generate_schema_from_batch(json_array, use_threads, num_threads);
+    Py_END_ALLOW_THREADS
     
     // Free the input array
     cJSON_Delete(json_array);
@@ -282,12 +324,13 @@ static PyObject* py_generate_schema_batch(PyObject* self, PyObject* args, PyObje
     return py_result;
 }
 
+
 // Module method definitions with proper function signatures
 static PyMethodDef CJsonToolsMethods[] = {
     {"flatten_json", (PyCFunction)(void(*)(void))py_flatten_json, METH_VARARGS | METH_KEYWORDS,
-     "Flatten a JSON string into a flat structure."},
+     "Flatten a JSON string into a flat structure. Args: json_string, use_threads=False, num_threads=0, pretty_print=False"},
     {"flatten_json_batch", (PyCFunction)(void(*)(void))py_flatten_json_batch, METH_VARARGS | METH_KEYWORDS,
-     "Flatten a batch of JSON objects into flat structures."},
+     "Flatten a batch of JSON objects into flat structures. Args: json_list, use_threads=True, num_threads=0, pretty_print=False"},
     {"generate_schema", (PyCFunction)(void(*)(void))py_generate_schema, METH_VARARGS | METH_KEYWORDS,
      "Generate a JSON schema from a JSON string."},
     {"generate_schema_batch", (PyCFunction)(void(*)(void))py_generate_schema_batch, METH_VARARGS | METH_KEYWORDS,

@@ -4,6 +4,7 @@
 #include "../include/memory_pool.h"
 #include "../include/string_view.h"
 #include "../include/compiler_hints.h"
+#include "../include/simd_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -97,6 +98,10 @@ typedef struct {
 
 // Create a new schema node with optimized initialization
 SchemaNode* create_schema_node(SchemaType type) {
+    // Initialize global memory pools if not already done
+    if (!g_cjson_node_pool) {
+        init_global_pools();
+    }
     SchemaNode* node = (SchemaNode*)malloc(sizeof(SchemaNode));
     if (__builtin_expect(!node, 0)) return NULL;
 
@@ -108,10 +113,10 @@ SchemaNode* create_schema_node(SchemaType type) {
     return node;
 }
 
-// Cache-optimized property addition with memory pooling
+// Cache-optimized property addition with consistent memory allocation
 HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* property_schema, int required) {
-    // Use memory pool for property nodes
-    PropertyNode* prop = g_property_node_pool ? POOL_ALLOC(g_property_node_pool) : malloc(sizeof(PropertyNode));
+    // Always use regular malloc for property nodes to ensure consistent freeing
+    PropertyNode* prop = (PropertyNode*)malloc(sizeof(PropertyNode));
     if (UNLIKELY(!prop)) return;
 
     // Use string view for faster string operations
@@ -149,36 +154,39 @@ PropertyNode* find_property(SchemaNode* node, const char* name) {
     return NULL;
 }
 
-// Free a schema node
+// Free a schema node with proper memory pool handling
 void free_schema_node(SchemaNode* node) {
     if (!node) return;
-    
+
     // Free array items schema
     if (node->items) {
         free_schema_node(node->items);
     }
-    
-    // Free object properties
+
+    // Free object properties with consistent memory management
     PropertyNode* prop = node->properties;
     while (prop) {
         PropertyNode* next = prop->next;
         free(prop->name);
         free_schema_node(prop->schema);
+
+        // Always use regular free since we use regular malloc
         free(prop);
         prop = next;
     }
-    
+
     // Free required properties list
     for (int i = 0; i < node->required_count; i++) {
         free(node->required_props[i]);
     }
     free(node->required_props);
-    
+
     // Free enum values
     if (node->enum_values) {
         cJSON_Delete(node->enum_values);
     }
-    
+
+    // Always use regular free for schema nodes since they're allocated with malloc
     free(node);
 }
 
@@ -620,13 +628,17 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
                 // Wait for all tasks to complete
                 thread_pool_wait(pool);
                 
-                // Collect results
+                // Collect results with null checking
                 for (int i = 0; i < array_size; i++) {
                     if (thread_data_array[i]) {
                         schemas[i] = thread_data_array[i]->result;
-                        
+
                         // Free the individual thread data
                         free(thread_data_array[i]);
+                        thread_data_array[i] = NULL;
+                    } else {
+                        // If thread data allocation failed, set schema to NULL
+                        schemas[i] = NULL;
                     }
                 }
                 
@@ -639,23 +651,54 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
         }
     }
     
-    // For simplicity, just use the first schema to avoid memory issues
-    // In a production system, you'd want proper schema merging
-    SchemaNode* merged_schema = schemas[0];
-
-    // Free all other schemas
-    for (int i = 1; i < array_size; i++) {
-        free_schema_node(schemas[i]);
+    // Create a merged schema by combining all valid schemas
+    SchemaNode* merged_schema = create_schema_node(TYPE_OBJECT);
+    if (!merged_schema) {
+        free(objects);
+        free(schemas);
+        return NULL;
     }
-    
+
+    // Merge properties from all valid schemas
+    for (int i = 0; i < array_size; i++) {
+        if (schemas[i] != NULL && schemas[i]->type == TYPE_OBJECT) {
+            // Copy all properties from this schema to the merged schema
+            PropertyNode* prop = schemas[i]->properties;
+            while (prop) {
+                // Check if property already exists in merged schema
+                PropertyNode* existing = find_property(merged_schema, prop->name);
+                if (!existing) {
+                    // Create a copy of the property schema
+                    SchemaNode* prop_copy = create_schema_node(prop->schema->type);
+                    if (prop_copy) {
+                        // Copy basic properties
+                        prop_copy->nullable = prop->schema->nullable;
+                        prop_copy->required = prop->schema->required;
+
+                        // Add the property to merged schema
+                        add_property(merged_schema, prop->name, prop_copy, prop->required);
+                    }
+                }
+                prop = prop->next;
+            }
+        }
+    }
+
+    // Free all individual schemas
+    for (int i = 0; i < array_size; i++) {
+        if (schemas[i] != NULL) {
+            free_schema_node(schemas[i]);
+        }
+    }
+
     // Convert to JSON
     cJSON* result = schema_node_to_json(merged_schema);
-    
-    // Clean up
+
+    // Clean up the merged schema and arrays
     free_schema_node(merged_schema);
     free(objects);
     free(schemas);
-    
+
     return result;
 }
 

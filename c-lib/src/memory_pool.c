@@ -48,7 +48,11 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
     allocator->objects_per_slab = 4096 / allocator->object_size;
     if (allocator->objects_per_slab < 1) allocator->objects_per_slab = 1;
 
-    size_t slab_size = allocator->object_size * allocator->objects_per_slab;
+    // Calculate how many slabs we need for initial_objects
+    size_t slabs_needed = (initial_objects + allocator->objects_per_slab - 1) / allocator->objects_per_slab;
+    if (slabs_needed < 1) slabs_needed = 1;
+
+    size_t slab_size = allocator->object_size * allocator->objects_per_slab * slabs_needed;
     allocator->use_huge_pages = false;
     
 #ifdef __unix__
@@ -157,6 +161,11 @@ void slab_allocator_destroy(SlabAllocator* allocator) {
 }
 
 void init_global_pools(void) {
+    // Prevent double initialization
+    if (g_cjson_node_pool != NULL) {
+        return;
+    }
+
     // Initialize pools for common object sizes
     g_cjson_node_pool = slab_allocator_create(256, 1000);      // cJSON nodes
     g_property_node_pool = slab_allocator_create(128, 500);    // Property nodes
@@ -164,11 +173,16 @@ void init_global_pools(void) {
 }
 
 void cleanup_global_pools(void) {
-    slab_allocator_destroy(g_cjson_node_pool);
-    slab_allocator_destroy(g_property_node_pool);
-    slab_allocator_destroy(g_task_pool);
-    
-    g_cjson_node_pool = NULL;
-    g_property_node_pool = NULL;
-    g_task_pool = NULL;
+    if (g_cjson_node_pool) {
+        slab_allocator_destroy(g_cjson_node_pool);
+        g_cjson_node_pool = NULL;
+    }
+    if (g_property_node_pool) {
+        slab_allocator_destroy(g_property_node_pool);
+        g_property_node_pool = NULL;
+    }
+    if (g_task_pool) {
+        slab_allocator_destroy(g_task_pool);
+        g_task_pool = NULL;
+    }
 }

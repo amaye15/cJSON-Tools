@@ -1,5 +1,6 @@
 #include "../include/compiler_hints.h"
 #include "../include/string_view.h"
+#include "../include/simd_utils.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -212,7 +213,7 @@ HOT_PATH static int is_valid_number_simd(const char* str, size_t len) {
 }
 
 // Optimized string length calculation with SIMD
-HOT_PATH static size_t strlen_simd(const char* str) {
+HOT_PATH size_t strlen_simd(const char* str) {
 #ifdef __AVX2__
     const __m256i zero = _mm256_setzero_si256();
     size_t len = 0;

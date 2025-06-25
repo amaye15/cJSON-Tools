@@ -55,10 +55,27 @@ void thread_pool_destroy(ThreadPool* pool);
 
 /**
  * Waits for all tasks to complete
- * 
+ *
  * @param pool The thread pool
  */
 void thread_pool_wait(ThreadPool* pool);
+
+/**
+ * Gets the approximate number of pending tasks in the queue
+ * Useful for monitoring and load balancing
+ *
+ * @return Approximate number of tasks in queue
+ */
+size_t get_task_queue_size(void);
+
+/**
+ * Gets the approximate number of pending tasks in a thread pool
+ * Includes both local queue and global lock-free queue
+ *
+ * @param pool The thread pool
+ * @return Approximate number of tasks in queue
+ */
+size_t thread_pool_get_queue_size(ThreadPool* pool);
 
 /**
  * Gets the number of threads in the pool

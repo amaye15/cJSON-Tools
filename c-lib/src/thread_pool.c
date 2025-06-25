@@ -186,3 +186,23 @@ int thread_pool_get_thread_count(ThreadPool* pool) {
     }
     return pool->num_threads;
 }
+
+// Get approximate queue size for monitoring and load balancing
+size_t thread_pool_get_queue_size(ThreadPool* pool) {
+    if (pool == NULL) {
+        return 0;
+    }
+
+    // For local thread pools, count tasks in the queue
+    size_t count = 0;
+    pthread_mutex_lock(&pool->queue_mutex);
+    Task* current = pool->task_queue;
+    while (current != NULL && count < 1000) {  // Limit to avoid infinite loops
+        current = current->next;
+        count++;
+    }
+    pthread_mutex_unlock(&pool->queue_mutex);
+
+    // Also include global lock-free queue size
+    return count + get_task_queue_size();
+}

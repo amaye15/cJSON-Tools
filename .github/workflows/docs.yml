@@ -113,7 +113,7 @@ jobs:
                         doc_content.append('')
         
         with open('../docs/python-api/api.md', 'w') as f:
-            f.write('\\n'.join(doc_content))
+            f.write('\\\\n'.join(doc_content))
         
         print('✅ Python API documentation generated')
         "

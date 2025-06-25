@@ -110,7 +110,7 @@ static int lf_queue_is_empty(LockFreeQueue* queue) {
 }
 
 // Get approximate queue size (for monitoring)
-static size_t lf_queue_size_approx(LockFreeQueue* queue) {
+size_t lf_queue_size_approx(LockFreeQueue* queue) {
     size_t count = 0;
     QueueNode* current = (QueueNode*)atomic_load(&queue->head);
     QueueNode* tail = (QueueNode*)atomic_load(&queue->tail);
@@ -165,4 +165,12 @@ void cleanup_lockfree_task_queue(void) {
         lf_queue_destroy(&g_task_queue);
         atomic_store(&g_queue_initialized, 0);
     }
+}
+
+// Public function to get task queue size for monitoring
+size_t get_task_queue_size(void) {
+    if (!atomic_load(&g_queue_initialized)) {
+        return 0;
+    }
+    return lf_queue_size_approx(&g_task_queue);
 }

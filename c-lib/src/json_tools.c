@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
     int use_threads = 0;
     int num_threads = 0;
     int pretty_print = 0;
+
     char* output_file = NULL;
     char* input_file = NULL;
     
@@ -58,8 +59,9 @@ int main(int argc, char* argv[]) {
                     action_schema = 0;
                     continue;
                 case 's':
-                    fprintf(stderr, "Schema generation temporarily disabled due to memory issues\n");
-                    return 1;
+                    action_flatten = 0;
+                    action_schema = 1;
+                    break;
                 case 't':
                     use_threads = 1;
                     if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -120,8 +122,9 @@ int main(int argc, char* argv[]) {
                         action_schema = 0;
                         break;
                     case 's':
-                        fprintf(stderr, "Schema generation temporarily disabled due to memory issues\n");
-                        return 1;
+                        action_flatten = 0;
+                        action_schema = 1;
+                        break;
                     case 't':
                         use_threads = 1;
                         break;
@@ -173,21 +176,32 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Output result
+    // Output result with optional pretty printing
+    char* final_output = result;
+    if (pretty_print && action_flatten) {
+        // For flattened JSON, parse and reformat with pretty printing
+        cJSON* json = cJSON_Parse(result);
+        if (json) {
+            free(result);
+            final_output = cJSON_Print(json);
+            cJSON_Delete(json);
+        }
+    }
+
     if (output_file) {
         FILE* file = fopen(output_file, "w");
         if (!file) {
             fprintf(stderr, "Error: Could not open output file %s\n", output_file);
-            free(result);
+            free(final_output);
             return 1;
         }
-        fprintf(file, "%s\n", result);
+        fprintf(file, "%s\n", final_output);
         fclose(file);
     } else {
-        printf("%s\n", result);
+        printf("%s\n", final_output);
     }
     
-    free(result);
+    free(final_output);
 
     // Cleanup global memory pools
     cleanup_global_pools();

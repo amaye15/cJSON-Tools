@@ -1,4 +1,5 @@
 #include "../include/json_utils.h"
+#include "../include/simd_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +22,7 @@
 static char* my_strdup_simd(const char* str) {
     if (__builtin_expect(str == NULL, 0)) return NULL;
 
-    size_t len = strlen(str);
+    size_t len = strlen_simd(str);
     // Align allocation to 16 bytes for SIMD operations
     size_t aligned_size = (len + 16) & ~15;
     char* new_str;
@@ -52,7 +53,7 @@ static char* my_strdup_simd(const char* str) {
 char* my_strdup(const char* str) {
     if (__builtin_expect(str == NULL, 0)) return NULL;
 
-    size_t len = strlen(str) + 1;
+    size_t len = strlen_simd(str) + 1;
 
 #ifdef __SSE2__
     // Use SIMD for longer strings
@@ -168,7 +169,7 @@ char* read_json_stdin(void) {
     content[0] = '\0';
     
     while (fgets(buffer, sizeof(buffer), stdin)) {
-        size_t buffer_len = strlen(buffer);
+        size_t buffer_len = strlen_simd(buffer);
         while (content_used + buffer_len + 1 > content_size) {
             content_size *= 2;
             content = realloc(content, content_size);

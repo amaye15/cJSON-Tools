@@ -4,6 +4,7 @@
 #include "../include/memory_pool.h"
 #include "../include/string_view.h"
 #include "../include/compiler_hints.h"
+#include "../include/simd_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,14 +68,22 @@ static char* pool_alloc(FlattenedArray* array, size_t size) {
 void init_flattened_array(FlattenedArray* array, int initial_capacity) {
     // Use larger initial capacity to reduce reallocations
     int capacity = initial_capacity < INITIAL_ARRAY_CAPACITY ? INITIAL_ARRAY_CAPACITY : initial_capacity;
+
+    // Initialize global memory pools if not already done
+    if (!g_cjson_node_pool) {
+        init_global_pools();
+    }
+
     array->pairs = (FlattenedPair*)malloc(capacity * sizeof(FlattenedPair));
     array->count = 0;
     array->capacity = capacity;
 
-    // Initialize memory pool for small string allocations
-    array->memory_pool = (char*)malloc(MEMORY_POOL_SIZE);
+    // Initialize memory pool for small string allocations with optimized size
+    // Use the initial_objects parameter we integrated earlier
+    size_t pool_size = MEMORY_POOL_SIZE + (initial_capacity * 64); // Estimate 64 bytes per key
+    array->memory_pool = (char*)malloc(pool_size);
     array->pool_used = 0;
-    array->pool_size = MEMORY_POOL_SIZE;
+    array->pool_size = pool_size;
 }
 
 // Optimized key construction with better performance
@@ -91,13 +100,13 @@ static inline void build_key_optimized(char* buffer, size_t buffer_size,
         return;
     }
 
-    size_t prefix_len = strlen(prefix);
+    size_t prefix_len = strlen_simd(prefix);
     if (is_array_index) {
         // Use faster integer formatting
         snprintf(buffer, buffer_size, "%.*s[%d]", (int)prefix_len, prefix, index);
     } else {
         // Use memcpy for better performance than strcat
-        size_t suffix_len = strlen(suffix);
+        size_t suffix_len = strlen_simd(suffix);
         if (prefix_len + suffix_len + 2 < buffer_size) {
             memcpy(buffer, prefix, prefix_len);
             buffer[prefix_len] = '.';
@@ -110,7 +119,7 @@ static inline void build_key_optimized(char* buffer, size_t buffer_size,
 HOT_PATH static char* pool_strdup(FlattenedArray* array, const char* str) {
     if (UNLIKELY(!str)) return NULL;
 
-    size_t len = strlen(str) + 1;
+    size_t len = strlen_simd(str) + 1;
     char* new_str;
 
     // Use pool for small strings (most common case)
@@ -189,10 +198,10 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
     switch (json->type) {
         case cJSON_Object: {
             cJSON* child = json->child;
-            const size_t prefix_len = prefix ? strlen(prefix) : 0;
+            const size_t prefix_len = prefix ? strlen_simd(prefix) : 0;
 
             while (child != NULL) {
-                const size_t child_len = strlen(child->string);
+                const size_t child_len = strlen_simd(child->string);
                 const size_t new_len = prefix_len + child_len + 2; // +2 for '.' and '\0'
 
                 char* new_prefix;
@@ -239,7 +248,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
         case cJSON_Array: {
             cJSON* child = json->child;
             int index = 0;
-            const size_t prefix_len = prefix ? strlen(prefix) : 0;
+            const size_t prefix_len = prefix ? strlen_simd(prefix) : 0;
 
             while (child != NULL) {
                 // Optimized array index formatting
