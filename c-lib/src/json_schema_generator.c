@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <pthread.h>
 
 #define MIN_OBJECTS_PER_THREAD 25   // Reduced for better parallelization
 #define MIN_BATCH_SIZE_FOR_MT 100   // Reduced threshold for multi-threading

@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 #define MAX_KEY_LENGTH 2048
 #define BATCH_SIZE 1000

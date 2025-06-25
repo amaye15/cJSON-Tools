@@ -1,8 +1,20 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
-#include <pthread.h>
 #include <stdbool.h>
+
+// Cross-platform threading support
+#ifdef _WIN32
+    #include <windows.h>
+    #include <process.h>
+    typedef HANDLE pthread_t;
+    typedef CRITICAL_SECTION pthread_mutex_t;
+    typedef CONDITION_VARIABLE pthread_cond_t;
+    #define PTHREAD_MUTEX_INITIALIZER {0}
+    #define PTHREAD_COND_INITIALIZER CONDITION_VARIABLE_INIT
+#else
+    #include <pthread.h>
+#endif
 
 /**
  * Task structure for thread pool

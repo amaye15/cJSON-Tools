@@ -3,6 +3,74 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef _WIN32
+// Windows threading wrapper functions
+static int pthread_create(pthread_t* thread, void* attr, void* (*start_routine)(void*), void* arg) {
+    (void)attr; // Unused parameter
+    *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)start_routine, arg, 0, NULL);
+    return (*thread == NULL) ? -1 : 0;
+}
+
+static int pthread_join(pthread_t thread, void** retval) {
+    (void)retval; // Unused parameter
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+    return 0;
+}
+
+static void pthread_exit(void* retval) {
+    (void)retval; // Unused parameter
+    ExitThread(0);
+}
+
+static int pthread_mutex_init(pthread_mutex_t* mutex, void* attr) {
+    (void)attr; // Unused parameter
+    InitializeCriticalSection(mutex);
+    return 0;
+}
+
+static int pthread_mutex_lock(pthread_mutex_t* mutex) {
+    EnterCriticalSection(mutex);
+    return 0;
+}
+
+static int pthread_mutex_unlock(pthread_mutex_t* mutex) {
+    LeaveCriticalSection(mutex);
+    return 0;
+}
+
+static int pthread_mutex_destroy(pthread_mutex_t* mutex) {
+    DeleteCriticalSection(mutex);
+    return 0;
+}
+
+static int pthread_cond_init(pthread_cond_t* cond, void* attr) {
+    (void)attr; // Unused parameter
+    InitializeConditionVariable(cond);
+    return 0;
+}
+
+static int pthread_cond_wait(pthread_cond_t* cond, pthread_mutex_t* mutex) {
+    SleepConditionVariableCS(cond, mutex, INFINITE);
+    return 0;
+}
+
+static int pthread_cond_signal(pthread_cond_t* cond) {
+    WakeConditionVariable(cond);
+    return 0;
+}
+
+static int pthread_cond_broadcast(pthread_cond_t* cond) {
+    WakeAllConditionVariable(cond);
+    return 0;
+}
+
+static int pthread_cond_destroy(pthread_cond_t* cond) {
+    (void)cond; // No cleanup needed for Windows condition variables
+    return 0;
+}
+#endif
+
 // Optimized worker thread function with reduced lock contention
 static void* worker_thread(void* arg) {
     ThreadPool* pool = (ThreadPool*)arg;
