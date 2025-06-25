@@ -12,12 +12,12 @@ import os
 def run_black(check_only=False):
     """Run Black formatter on the codebase."""
     cmd = ["python3", "-m", "black"]
-    
+
     if check_only:
         cmd.extend(["--check", "--diff"])
-    
+
     cmd.append(".")
-    
+
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=os.path.dirname(__file__))
     return result.returncode
@@ -26,7 +26,7 @@ def run_black(check_only=False):
 def main():
     """Main entry point."""
     check_only = "--check" in sys.argv
-    
+
     if check_only:
         print("🔍 Checking code formatting...")
         exit_code = run_black(check_only=True)
@@ -41,7 +41,7 @@ def main():
             print("✅ Code formatting completed!")
         else:
             print("❌ Formatting failed.")
-    
+
     sys.exit(exit_code)
 
 
