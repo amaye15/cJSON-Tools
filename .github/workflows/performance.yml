@@ -236,7 +236,7 @@ jobs:
         report.append('')
         report.append('**Platform:** ${{ matrix.platform }}')
         report.append('**Date:** ' + os.popen('date').read().strip())
-        report.append('**Benchmark Size:** ${{ github.event.inputs.benchmark_size || \'medium\' }}')
+        report.append('**Benchmark Size:** ${{ github.event.inputs.benchmark_size || "medium" }}')
         report.append('')
         report.append('## Python Performance Results')
         report.append('')
