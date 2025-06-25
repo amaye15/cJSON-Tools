@@ -266,6 +266,8 @@ jobs:
     - name: Memory stress test
       run: |
         cd c-lib/tests
+        # Build test data generator for current platform
+        make clean && make
         # Generate larger test file
         ./generate_test_data stress_test.json 1000 4
         
