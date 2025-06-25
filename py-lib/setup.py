@@ -1,6 +1,5 @@
 import os
 import platform
-import sys
 
 from setuptools import Extension, find_packages, setup
 
@@ -61,12 +60,20 @@ if not is_windows:
         extra_link_args = ["-flto", "-Wl,--gc-sections"]
 else:
     # Windows-specific configuration with optimizations
-    extra_compile_args = ["/std:c11", "/O2", "/GL", "/DNDEBUG", "/DTHREADING_DISABLED"]  # MSVC optimizations
+    extra_compile_args = [
+        "/std:c11",
+        "/O2",
+        "/GL",
+        "/DNDEBUG",
+        "/DTHREADING_DISABLED",
+    ]  # MSVC optimizations
     extra_link_args = ["/LTCG"]  # Link-time code generation
     # Note: Threading disabled on Windows for initial release
     # Add support for __declspec attributes
     if platform.system() == "Windows":
-        extra_compile_args.append("/experimental:external")  # Enable external headers support
+        extra_compile_args.append(
+            "/experimental:external"
+        )  # Enable external headers support
     else:
         # For cross-compilation testing with GCC/Clang
         extra_compile_args.extend(["-fms-extensions", "-Wno-ignored-attributes"])
