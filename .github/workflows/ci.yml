@@ -190,6 +190,7 @@ jobs:
       run: |
         cd py-lib
         pip install -r requirements-dev.txt
+        pip install isort
 
     - name: Check Python code formatting
       run: |
@@ -351,7 +352,7 @@ jobs:
         
         # Basic validation
         assert py_schema['type'] == c_schema['type'], 'Schema type mismatch'
-        assert 'properties' in both schemas
+        assert 'properties' in py_schema and 'properties' in c_schema, 'Missing properties in schemas'
         print('✅ Schema generation consistency validated')
         "
 
