@@ -1,8 +1,5 @@
 include cjson_tools/*.c
-include ../c-lib/include/*.h
-include ../c-lib/include/cjson/*.h
-include ../c-lib/src/*.c
+graft ../c-lib/include
+graft ../c-lib/src
 include LICENSE
-include README.md
-include PYTHON.md
-include INSTALL.md
+include ../README.md

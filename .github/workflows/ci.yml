@@ -188,13 +188,14 @@ jobs:
 
     - name: Install quality tools
       run: |
-        pip install black isort flake8 bandit safety
+        cd py-lib
+        pip install -r requirements-dev.txt
 
     - name: Check Python code formatting
       run: |
         cd py-lib
         black --check --diff .
-        isort --check-only --diff .
+        isort --profile=black --check-only --diff .
 
     - name: Python linting
       run: |
