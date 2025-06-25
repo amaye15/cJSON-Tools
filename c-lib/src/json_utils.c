@@ -11,6 +11,12 @@
 #include <sys/mman.h>
 #endif
 
+// Disable SIMD on Windows builds for initial PyPI release
+#ifdef THREADING_DISABLED
+#undef __SSE2__
+#undef __AVX2__
+#endif
+
 #ifdef __SSE2__
 #include <emmintrin.h>
 #endif
