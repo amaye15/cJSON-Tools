@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 # Data from our comprehensive benchmarks
 file_sizes = [

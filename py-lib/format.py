@@ -4,9 +4,9 @@ Simple script to format Python code using Black.
 Usage: python format.py [--check]
 """
 
+import os
 import subprocess
 import sys
-import os
 
 
 def run_black(check_only=False):

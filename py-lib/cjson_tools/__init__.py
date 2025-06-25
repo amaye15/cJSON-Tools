@@ -12,11 +12,11 @@ JSON schemas, and advanced performance optimizations including:
 """
 
 from ._cjson_tools import (
+    __version__,
     flatten_json,
     flatten_json_batch,
     generate_schema,
     generate_schema_batch,
-    __version__,
 )
 
 __all__ = [

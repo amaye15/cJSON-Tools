@@ -1,7 +1,8 @@
-from setuptools import setup, Extension, find_packages
 import os
-import sys
 import platform
+import sys
+
+from setuptools import Extension, find_packages, setup
 
 # Get the directory containing this setup.py file
 setup_dir = os.path.dirname(os.path.abspath(__file__))

@@ -4,22 +4,22 @@ Comprehensive test suite for cJSON-Tools with integrated optimizations.
 Tests all functionality including JSON flattening, schema generation, and performance optimizations.
 """
 
-import unittest
 import json
-import time
-import sys
 import os
+import sys
+import time
+import unittest
 
 # Add the parent directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from cjson_tools import (
+        __version__,
         flatten_json,
         flatten_json_batch,
         generate_schema,
         generate_schema_batch,
-        __version__,
     )
 
     print(f"✅ Successfully imported cjson_tools version {__version__}")

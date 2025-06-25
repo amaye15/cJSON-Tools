@@ -5,12 +5,13 @@ Unit tests for the cJSON-Tools Python bindings.
 
 import json
 import unittest
+
 from cjson_tools import (
+    __version__,
     flatten_json,
     flatten_json_batch,
     generate_schema,
     generate_schema_batch,
-    __version__,
 )
 
 

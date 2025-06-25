@@ -7,26 +7,27 @@ for various operations and data sizes, comparing single-threaded and
 multi-threaded performance.
 """
 
-import json
-import time
-import os
-import sys
 import argparse
+import json
+import multiprocessing
+import os
 import random
 import string
-import multiprocessing
-from tabulate import tabulate
+import sys
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
+from tabulate import tabulate
 
 # Add the parent directory to the path so we can import cjson_tools
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from cjson_tools import (
+    __version__,
     flatten_json,
     flatten_json_batch,
     generate_schema,
     generate_schema_batch,
-    __version__,
 )
 
 
