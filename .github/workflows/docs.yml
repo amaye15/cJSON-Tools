@@ -318,82 +318,10 @@ jobs:
         retention-days: 30
 
   # ============================================================================
-  # Deploy Documentation to GitHub Pages
+  # Documentation Generation Complete
   # ============================================================================
-  deploy-docs:
-    name: Deploy Documentation
-    needs: generate-docs
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Download documentation
-      uses: actions/download-artifact@v4
-      with:
-        name: documentation
-        path: docs/
-
-    - name: Setup Pages
-      uses: actions/configure-pages@v5
-      with:
-        enablement: true
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Create index page
-      run: |
-        cat > docs/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>cJSON-Tools Documentation</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .header { background: #f8f9fa; padding: 20px; border-radius: 8px; }
-                .section { margin: 20px 0; }
-                .link { display: block; margin: 10px 0; padding: 10px; background: #e9ecef; border-radius: 4px; text-decoration: none; color: #495057; }
-                .link:hover { background: #dee2e6; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>🚀 cJSON-Tools Documentation</h1>
-                <p>High-performance JSON processing toolkit with advanced optimizations</p>
-            </div>
-            
-            <div class="section">
-                <h2>📚 Documentation</h2>
-                <a href="c-api/html/index.html" class="link">C API Reference</a>
-                <a href="python-api/api.md" class="link">Python API Reference</a>
-                <a href="examples/basic_usage.md" class="link">Usage Examples</a>
-                <a href="performance/optimizations.md" class="link">Performance Guide</a>
-                <a href="INSTALLATION.md" class="link">Installation Guide</a>
-                <a href="TROUBLESHOOTING.md" class="link">Troubleshooting</a>
-            </div>
-            
-            <div class="section">
-                <h2>🔗 Links</h2>
-                <a href="https://github.com/amaye15/cJSON-Tools" class="link">GitHub Repository</a>
-                <a href="https://pypi.org/project/cjson-tools/" class="link">PyPI Package</a>
-            </div>
-        </body>
-        </html>
-        EOF
-
-    - name: Upload to GitHub Pages
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs/
-
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+  # Note: GitHub Pages deployment removed due to persistent permission issues
+  # Documentation artifacts are still generated and available for download
 
   # ============================================================================
   # Update README Badges
