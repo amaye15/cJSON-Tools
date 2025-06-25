@@ -1,13 +1,30 @@
 #ifndef COMPILER_HINTS_H
 #define COMPILER_HINTS_H
 
-#ifdef _MSC_VER
-#include <intrin.h>  // For MSVC intrinsics
-#include <immintrin.h>  // For _mm_pause
-#endif
-
 // Advanced compiler hints for better optimization
-#ifdef __GNUC__
+#ifdef _MSC_VER
+// MSVC-specific definitions
+#include <intrin.h>
+#include <emmintrin.h>
+
+#define FLATTEN
+#define NO_INLINE __declspec(noinline)
+#define ALWAYS_INLINE __forceinline
+#define PURE_FUNC
+#define CONST_FUNC
+#define HOT_PATH
+#define COLD_PATH
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
+#define ASSUME_ALIGNED(ptr, alignment) __assume((uintptr_t)(ptr) % (alignment) == 0)
+#define PREFETCH_READ(ptr) _mm_prefetch((char*)(ptr), _MM_HINT_T0)
+#define PREFETCH_WRITE(ptr) _mm_prefetch((char*)(ptr), _MM_HINT_T0)
+#define RESTRICT __restrict
+#define PACKED
+#define ALIGNED(n) __declspec(align(n))
+
+#elif defined(__GNUC__)
+// GCC-specific definitions
 #define FLATTEN __attribute__((flatten))
 #define NO_INLINE __attribute__((noinline))
 #define ALWAYS_INLINE __attribute__((always_inline)) inline
@@ -15,23 +32,17 @@
 #define CONST_FUNC __attribute__((const))
 #define HOT_PATH __attribute__((hot))
 #define COLD_PATH __attribute__((cold))
-#if defined(__GNUC__) || defined(__clang__)
-    #define LIKELY(x) __builtin_expect(!!(x), 1)
-    #define UNLIKELY(x) __builtin_expect(!!(x), 0)
-#else
-    // MSVC and other compilers don't have __builtin_expect
-    #define LIKELY(x) (x)
-    #define UNLIKELY(x) (x)
-#endif
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define ASSUME_ALIGNED(ptr, alignment) __builtin_assume_aligned(ptr, alignment)
 #define PREFETCH_READ(ptr) __builtin_prefetch(ptr, 0, 3)
-#ifndef PREFETCH_WRITE
 #define PREFETCH_WRITE(ptr) __builtin_prefetch(ptr, 1, 3)
-#endif
 #define RESTRICT __restrict__
 #define PACKED __attribute__((packed))
 #define ALIGNED(n) __attribute__((aligned(n)))
+
 #else
+// Fallback for other compilers
 #define FLATTEN
 #define NO_INLINE
 #define ALWAYS_INLINE inline

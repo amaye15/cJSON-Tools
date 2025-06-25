@@ -8,7 +8,9 @@
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
     // Native Windows (MSVC) - threading disabled for initial PyPI release
     // Will be implemented in future version
-    #define THREADING_DISABLED
+    #ifndef THREADING_DISABLED
+#define THREADING_DISABLED
+#endif
     typedef int pthread_t;
     typedef int pthread_mutex_t;
     typedef int pthread_cond_t;

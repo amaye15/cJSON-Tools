@@ -40,20 +40,22 @@ is_mingw_cross_compile = (
 )
 
 if is_windows:
-    # Native Windows build with MSVC
+    # Native Windows build with MSVC - Enhanced compatibility
     extra_compile_args = [
         "/std:c11",
         "/O2",
         "/GL",
         "/DNDEBUG",
         "/DTHREADING_DISABLED",
-    ]  # MSVC optimizations
+        "/D_CRT_SECURE_NO_WARNINGS",  # Suppress MSVC security warnings
+        "/wd4996",  # Disable deprecated function warnings
+        "/wd4005",  # Disable macro redefinition warnings
+        "/wd4013",  # Disable undefined function warnings
+        "/wd4505",  # Disable unreferenced function warnings
+        "/wd4244",  # Disable conversion warnings
+        "/wd4267",  # Disable size_t conversion warnings
+    ]
     extra_link_args = ["/LTCG"]  # Link-time code generation
-    # Note: Threading disabled on Windows for initial release
-    # Add support for __declspec attributes
-    extra_compile_args.append(
-        "/experimental:external"
-    )  # Enable external headers support
 elif is_mingw_cross_compile:
     # Cross-compilation for Windows using MinGW/GCC
     libraries.append("pthread")  # MinGW has pthread support

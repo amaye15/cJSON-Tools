@@ -124,7 +124,14 @@ static unsigned int hash_string(const char* str) {
 }
 
 // Fast property lookup using hash table
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4505) // Unreferenced local function
+static PropertyNode* find_property_fast(PropertyHash* hash, const char* name);
+#pragma warning(pop)
+#else
 static PropertyNode* find_property_fast(PropertyHash* hash, const char* name) __attribute__((unused));
+#endif
 static PropertyNode* find_property_fast(PropertyHash* hash, const char* name) {
     unsigned int bucket = hash_string(name);
     PropertyNode* prop = hash->buckets[bucket];
@@ -168,7 +175,12 @@ HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* prope
     if (UNLIKELY(!prop)) return;
 
     // Use string view for faster string operations
+#ifdef _MSC_VER
+    StringView name_view = make_string_view_cstr(name);
+    (void)name_view; // Suppress unused variable warning
+#else
     StringView name_view __attribute__((unused)) = make_string_view_cstr(name);
+#endif
 
     prop->name = my_strdup(name);
     prop->schema = property_schema;

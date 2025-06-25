@@ -9,6 +9,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#pragma warning(push)
+#pragma warning(disable: 4996) // Disable unsafe function warnings
+#endif
+
+// MSVC-safe string operations
+static inline void safe_strncpy(char* dest, const char* src, size_t size) {
+#ifdef _MSC_VER
+    if (size > 0) {
+        strncpy_s(dest, size, src, _TRUNCATE);
+    }
+#else
+    strncpy(dest, src, size - 1);
+    dest[size - 1] = '\0';
+#endif
+}
+
 #define MAX_KEY_LENGTH 2048
 #define BATCH_SIZE 1000
 #define MIN_OBJECTS_PER_THREAD 25   // Reduced for better parallelization
@@ -102,8 +120,7 @@ static inline void build_key_ultra_optimized(char* buffer, size_t buffer_size,
     goto *dispatch_table[dispatch_index];
 
 no_prefix_not_array:
-    strncpy(buffer, suffix, buffer_size - 1);
-    buffer[buffer_size - 1] = '\0';
+    safe_strncpy(buffer, suffix, buffer_size);
     return;
 
 no_prefix_array:
@@ -132,8 +149,7 @@ prefix_array:
         if (is_array_index) {
             snprintf(buffer, buffer_size, "[%d]", index);
         } else {
-            strncpy(buffer, suffix, buffer_size - 1);
-            buffer[buffer_size - 1] = '\0';
+            safe_strncpy(buffer, suffix, buffer_size);
         }
         return;
     }
@@ -154,8 +170,7 @@ static inline void build_key_optimized(char* buffer, size_t buffer_size,
         if (is_array_index) {
             snprintf(buffer, buffer_size, "[%d]", index);
         } else {
-            strncpy(buffer, suffix, buffer_size - 1);
-            buffer[buffer_size - 1] = '\0';
+            safe_strncpy(buffer, suffix, buffer_size);
         }
         return;
     }
@@ -252,7 +267,7 @@ void free_flattened_array(FlattenedArray* array) {
 
 // Optimized recursive flattening with better string handling
 void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* result) {
-    if (__builtin_expect(!json, 0)) return;
+    if (UNLIKELY(!json)) return;
 
     // Handle different types of JSON values
     switch (json->type) {
@@ -265,7 +280,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
                 const size_t new_len = prefix_len + child_len + 2; // +2 for '.' and '\0'
 
                 char* new_prefix;
-                if (__builtin_expect(new_len <= KEY_BUFFER_SIZE, 1)) {
+                if (LIKELY(new_len <= KEY_BUFFER_SIZE)) {
                     // Use stack allocation for small keys
                     char stack_buffer[KEY_BUFFER_SIZE];
                     if (prefix_len > 0) {
@@ -277,7 +292,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
                     }
 
                     // Recursively flatten child objects
-                    if (__builtin_expect(child->type == cJSON_Object || child->type == cJSON_Array, 0)) {
+                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
                         flatten_json_recursive(child, stack_buffer, result);
                     } else {
                         add_pair(result, stack_buffer, child);
@@ -293,7 +308,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
                         memcpy(new_prefix, child->string, child_len + 1);
                     }
 
-                    if (__builtin_expect(child->type == cJSON_Object || child->type == cJSON_Array, 0)) {
+                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
                         flatten_json_recursive(child, new_prefix, result);
                     } else {
                         add_pair(result, new_prefix, child);
@@ -317,7 +332,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
 
                 const size_t new_len = prefix_len + index_len + 1;
 
-                if (__builtin_expect(new_len <= KEY_BUFFER_SIZE, 1)) {
+                if (LIKELY(new_len <= KEY_BUFFER_SIZE)) {
                     // Use stack allocation for small keys
                     char stack_buffer[KEY_BUFFER_SIZE];
                     if (prefix_len > 0) {
@@ -328,7 +343,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
                     }
 
                     // Recursively flatten array elements
-                    if (__builtin_expect(child->type == cJSON_Object || child->type == cJSON_Array, 0)) {
+                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
                         flatten_json_recursive(child, stack_buffer, result);
                     } else {
                         add_pair(result, stack_buffer, child);
@@ -343,7 +358,7 @@ void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* res
                         memcpy(new_prefix, index_str, index_len + 1);
                     }
 
-                    if (__builtin_expect(child->type == cJSON_Object || child->type == cJSON_Array, 0)) {
+                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
                         flatten_json_recursive(child, new_prefix, result);
                     } else {
                         add_pair(result, new_prefix, child);
@@ -402,7 +417,7 @@ cJSON* create_flattened_json(FlattenedArray* flattened_array) {
 
 // Flatten a single JSON object with optimized initial capacity estimation
 cJSON* flatten_single_object(cJSON* json) {
-    if (__builtin_expect(!json, 0)) return NULL;
+    if (UNLIKELY(!json)) return NULL;
 
     // Estimate initial capacity based on JSON structure
     int estimated_capacity = INITIAL_ARRAY_CAPACITY;
@@ -605,3 +620,7 @@ char* flatten_json_string(const char* json_string, int use_threads, int num_thre
     cJSON_Delete(json);
     return result;
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
