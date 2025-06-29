@@ -7,6 +7,11 @@
 #define __WINDOWS__
 #endif
 
+// Windows compatibility for __builtin_expect
+#ifdef _MSC_VER
+#define __builtin_expect(expr, expected) (expr)
+#endif
+
 #ifdef __APPLE__
 #include <sys/sysctl.h>
 #endif
