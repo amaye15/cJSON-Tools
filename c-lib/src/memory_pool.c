@@ -52,8 +52,13 @@ static size_t get_cache_line_size(void) {
     static size_t cache_line_size = 0;
     if (cache_line_size == 0) {
 #if defined(__linux__)
+        // Try to get cache line size, fallback to 64 if not available
+        #ifdef _SC_LEVEL1_DCACHE_LINESIZE
         long size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
         cache_line_size = (size > 0) ? (size_t)size : 64;
+        #else
+        cache_line_size = 64; // Fallback for older glibc
+        #endif
 #elif defined(__WINDOWS__) && defined(HAS_LARGE_PAGES)
         SYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer[256];
         DWORD length = sizeof(buffer);
