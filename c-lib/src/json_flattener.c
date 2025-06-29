@@ -178,14 +178,26 @@ static inline void build_key_optimized(char* buffer, size_t buffer_size,
     size_t prefix_len = strlen_simd(prefix);
     if (is_array_index) {
         // Use faster integer formatting
-        snprintf(buffer, buffer_size, "%.*s[%d]", (int)prefix_len, prefix, index);
+        if (prefix_len == 0) {
+            snprintf(buffer, buffer_size, "[%d]", index);
+        } else {
+            snprintf(buffer, buffer_size, "%.*s[%d]", (int)prefix_len, prefix, index);
+        }
     } else {
         // Use memcpy for better performance than strcat
         size_t suffix_len = strlen_simd(suffix);
-        if (prefix_len + suffix_len + 2 < buffer_size) {
-            memcpy(buffer, prefix, prefix_len);
-            buffer[prefix_len] = '.';
-            memcpy(buffer + prefix_len + 1, suffix, suffix_len + 1);
+        if (prefix_len == 0) {
+            // No prefix, just copy the suffix
+            if (suffix_len + 1 < buffer_size) {
+                memcpy(buffer, suffix, suffix_len + 1);
+            }
+        } else {
+            // Has prefix, add dot separator
+            if (prefix_len + suffix_len + 2 < buffer_size) {
+                memcpy(buffer, prefix, prefix_len);
+                buffer[prefix_len] = '.';
+                memcpy(buffer + prefix_len + 1, suffix, suffix_len + 1);
+            }
         }
     }
 }
@@ -487,7 +499,24 @@ char* flatten_json_string(const char* json_string, int use_threads, int num_thre
     cJSON* flattened = NULL;
     
     if (json->type == cJSON_Array) {
-        flattened = flatten_json_batch(json, use_threads, num_threads);
+        // Check if array contains only primitives (not objects)
+        int array_size = cJSON_GetArraySize(json);
+        int has_objects = 0;
+        for (int i = 0; i < array_size; i++) {
+            cJSON* item = cJSON_GetArrayItem(json, i);
+            if (item && (item->type == cJSON_Object || item->type == cJSON_Array)) {
+                has_objects = 1;
+                break;
+            }
+        }
+
+        if (has_objects) {
+            // Array contains objects/arrays, flatten them
+            flattened = flatten_json_batch(json, use_threads, num_threads);
+        } else {
+            // Array contains only primitives, return as-is
+            flattened = cJSON_Duplicate(json, 1);
+        }
     } else {
         flattened = flatten_json_object(json);
     }
