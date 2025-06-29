@@ -100,9 +100,13 @@ cjson_tools_module = Extension(
     libraries=libraries,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
-    define_macros=[
-        ("_CRT_SECURE_NO_WARNINGS", None) if is_windows else ("_GNU_SOURCE", None),
-    ] if is_windows else None,
+    define_macros=(
+        [
+            ("_CRT_SECURE_NO_WARNINGS", None) if is_windows else ("_GNU_SOURCE", None),
+        ]
+        if is_windows
+        else None
+    ),
 )
 
 # Read the main README file
