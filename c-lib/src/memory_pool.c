@@ -3,7 +3,11 @@
 #include <string.h>
 #include <stdatomic.h>
 
-#ifdef _WIN32
+#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
+#define __WINDOWS__
+#endif
+
+#ifdef __WINDOWS__
     #include <windows.h>
     #include <malloc.h>
     // Windows doesn't have MAP_ANONYMOUS
@@ -31,7 +35,7 @@
     #endif
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)
     #define HAS_SUPERPAGE_SUPPORT 1
-#elif defined(_WIN32)
+#elif defined(__WINDOWS__)
     #include <windows.h>
     #define HAS_LARGE_PAGES 1
 #endif
@@ -43,7 +47,7 @@ static size_t get_cache_line_size(void) {
 #if defined(__linux__)
         long size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
         cache_line_size = (size > 0) ? (size_t)size : 64;
-#elif defined(_WIN32) && defined(HAS_LARGE_PAGES)
+#elif defined(__WINDOWS__) && defined(HAS_LARGE_PAGES)
         SYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer[256];
         DWORD length = sizeof(buffer);
         if (GetLogicalProcessorInformation(buffer, &length)) {

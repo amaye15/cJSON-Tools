@@ -4,8 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
+#define __WINDOWS__
+#endif
+
 // Simplified Windows implementation - avoid complex header conflicts
-#ifdef _WIN32
+#ifdef __WINDOWS__
     #include <process.h>
 
     // Simple Windows implementation without advanced features
@@ -123,7 +127,7 @@ static char* read_json_file_mmap(const char* filename) {
     }
 
     close(fd);
-#elif defined(_WIN32)
+#elif defined(__WINDOWS__)
     // Disable memory mapping on Windows for now to avoid header conflicts
     (void)filename; // Suppress unused parameter warning
 #endif

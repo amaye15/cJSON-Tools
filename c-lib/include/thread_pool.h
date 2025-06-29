@@ -4,8 +4,12 @@
 #include <stdbool.h>
 #include <stddef.h>  // For size_t
 
+#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
+#define __WINDOWS__
+#endif
+
 // Cross-platform threading support
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(__WINDOWS__) && !defined(__MINGW32__) && !defined(__MINGW64__)
     // Native Windows (MSVC) - threading disabled for initial PyPI release
     // Will be implemented in future version
     #ifndef THREADING_DISABLED

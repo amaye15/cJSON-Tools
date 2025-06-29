@@ -29,9 +29,6 @@ extra_link_args = []
 # Check if we're on Windows
 is_windows = platform.system() == "Windows"
 
-# Initialize libraries list
-libraries = []
-
 # Check for cross-compilation to Windows with MinGW
 is_mingw_cross_compile = (
     os.environ.get("CC", "").startswith("x86_64-w64-mingw32")
@@ -47,18 +44,19 @@ if is_windows:
         "/GL",
         "/DNDEBUG",
         "/DTHREADING_DISABLED",
-        "/D_CRT_SECURE_NO_WARNINGS",  # Suppress MSVC security warnings
-        "/wd4996",  # Disable deprecated function warnings
-        "/wd4005",  # Disable macro redefinition warnings
-        "/wd4013",  # Disable undefined function warnings
-        "/wd4505",  # Disable unreferenced function warnings
-        "/wd4244",  # Disable conversion warnings
-        "/wd4267",  # Disable size_t conversion warnings
+        "/D_CRT_SECURE_NO_WARNINGS",
+        "/wd4996",
+        "/wd4005",
+        "/wd4013",
+        "/wd4505",
+        "/wd4244",
+        "/wd4267",
     ]
-    extra_link_args = ["/LTCG"]  # Link-time code generation
+    extra_link_args = ["/LTCG"]
+
 elif is_mingw_cross_compile:
     # Cross-compilation for Windows using MinGW/GCC
-    libraries.append("pthread")  # MinGW has pthread support
+    libraries.append("pthread")
     extra_compile_args = [
         "-std=c99",
         "-Wall",
@@ -67,50 +65,34 @@ elif is_mingw_cross_compile:
         "-DNDEBUG",
         "-D_WIN32",
         "-DTHREADING_DISABLED",
-        "-fms-extensions",
-        "-Wno-ignored-attributes",
     ]
     extra_link_args = ["-static-libgcc", "-static-libstdc++", "-lpthread"]
 else:
-    # Unix-like systems (Linux, macOS) with advanced optimizations
+    # Unix-like systems (Linux, macOS)
     libraries.append("pthread")
-
-    # Base optimization flags (removed -ffast-math due to NaN issues)
     extra_compile_args = [
         "-std=c99",
         "-Wall",
         "-Wextra",
         "-O3",
         "-flto",
-        "-funroll-loops",
-        "-fomit-frame-pointer",
-        "-finline-functions",
-        "-fno-stack-protector",
         "-DNDEBUG",
     ]
-
-    # Platform-specific optimizations
-    if platform.system() == "Darwin":
-        # macOS - avoid march=native for universal builds
-        extra_link_args = ["-flto", "-Wl,-dead_strip"]
-    else:
-        # Linux - use march=native for better performance
-        extra_compile_args.extend(["-march=native", "-mtune=native"])
-        extra_link_args = ["-flto", "-Wl,--gc-sections"]
+    extra_link_args = ["-flto"]
 
 # Define the extension module
 cjson_tools_module = Extension(
     "cjson_tools._cjson_tools",
     sources=[
         "cjson_tools/_cjson_tools.c",
+        os.path.join(c_lib_src, "cJSON.c"),
         os.path.join(c_lib_src, "json_flattener.c"),
         os.path.join(c_lib_src, "json_schema_generator.c"),
         os.path.join(c_lib_src, "json_utils.c"),
         os.path.join(c_lib_src, "thread_pool.c"),
         os.path.join(c_lib_src, "memory_pool.c"),
-        os.path.join(c_lib_src, "json_parser_simd.c"),
+        os.path.join(c_lib_src, "simd_utils.c"),
         os.path.join(c_lib_src, "lockfree_queue.c"),
-        os.path.join(c_lib_src, "cJSON.c"),  # Include cJSON directly
     ],
     include_dirs=[
         c_lib_include,
@@ -118,6 +100,9 @@ cjson_tools_module = Extension(
     libraries=libraries,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
+    define_macros=[
+        ("_CRT_SECURE_NO_WARNINGS", None) if is_windows else ("_GNU_SOURCE", None),
+    ] if is_windows else None,
 )
 
 # Read the main README file
@@ -157,6 +142,8 @@ setup(
         "Programming Language :: C",
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Libraries :: Python Modules",
+        "Operating System :: OS Independent",
     ],
     python_requires=">=3.8",
+    zip_safe=False,  # Important for C extensions
 )

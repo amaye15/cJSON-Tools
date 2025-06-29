@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
+#define __WINDOWS__
+#endif
+
 #ifdef __APPLE__
 #include <sys/sysctl.h>
 #endif
@@ -12,7 +16,7 @@
 #include <unistd.h>
 #endif
 
-#if defined(THREADING_DISABLED) && defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(THREADING_DISABLED) && defined(__WINDOWS__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 // Native Windows (MSVC) implementation - threading disabled for initial release
 int pthread_create(pthread_t* thread, void* attr, void* (*start_routine)(void*), void* arg) {
     (void)thread; (void)attr; (void)start_routine; (void)arg;
@@ -83,7 +87,7 @@ static int get_num_cores_internal(void) {
     if (num_cores == 0) {
 #ifdef __linux__
         num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(_WIN32) && defined(HAS_LARGE_PAGES)
+#elif defined(__WINDOWS__) && defined(HAS_LARGE_PAGES)
         SYSTEM_INFO sysinfo;
         GetSystemInfo(&sysinfo);
         num_cores = sysinfo.dwNumberOfProcessors;

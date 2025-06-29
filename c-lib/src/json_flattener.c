@@ -267,114 +267,28 @@ void free_flattened_array(FlattenedArray* array) {
 
 // Optimized recursive flattening with better string handling
 void flatten_json_recursive(cJSON* json, const char* prefix, FlattenedArray* result) {
-    if (UNLIKELY(!json)) return;
+    if (!json) return;
 
-    // Handle different types of JSON values
-    switch (json->type) {
-        case cJSON_Object: {
-            cJSON* child = json->child;
-            const size_t prefix_len = prefix ? strlen_simd(prefix) : 0;
+    char key_buffer[MAX_KEY_LENGTH];
 
-            while (child != NULL) {
-                const size_t child_len = strlen_simd(child->string);
-                const size_t new_len = prefix_len + child_len + 2; // +2 for '.' and '\0'
-
-                char* new_prefix;
-                if (LIKELY(new_len <= KEY_BUFFER_SIZE)) {
-                    // Use stack allocation for small keys
-                    char stack_buffer[KEY_BUFFER_SIZE];
-                    if (prefix_len > 0) {
-                        memcpy(stack_buffer, prefix, prefix_len);
-                        stack_buffer[prefix_len] = '.';
-                        memcpy(stack_buffer + prefix_len + 1, child->string, child_len + 1);
-                    } else {
-                        memcpy(stack_buffer, child->string, child_len + 1);
-                    }
-
-                    // Recursively flatten child objects
-                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
-                        flatten_json_recursive(child, stack_buffer, result);
-                    } else {
-                        add_pair(result, stack_buffer, child);
-                    }
-                } else {
-                    // Fall back to heap allocation for large keys
-                    new_prefix = (char*)malloc(new_len);
-                    if (prefix_len > 0) {
-                        memcpy(new_prefix, prefix, prefix_len);
-                        new_prefix[prefix_len] = '.';
-                        memcpy(new_prefix + prefix_len + 1, child->string, child_len + 1);
-                    } else {
-                        memcpy(new_prefix, child->string, child_len + 1);
-                    }
-
-                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
-                        flatten_json_recursive(child, new_prefix, result);
-                    } else {
-                        add_pair(result, new_prefix, child);
-                    }
-                    free(new_prefix);
-                }
-
-                child = child->next;
-            }
-            break;
+    if (json->type == cJSON_Object) {
+        cJSON* child = json->child;
+        while (child) {
+            build_key_optimized(key_buffer, sizeof(key_buffer), prefix, child->string, 0, 0);
+            flatten_json_recursive(child, key_buffer, result);
+            child = child->next;
         }
-        case cJSON_Array: {
-            cJSON* child = json->child;
-            int index = 0;
-            const size_t prefix_len = prefix ? strlen_simd(prefix) : 0;
-
-            while (child != NULL) {
-                // Optimized array index formatting
-                char index_str[16]; // Enough for any reasonable array index
-                int index_len = snprintf(index_str, sizeof(index_str), "[%d]", index);
-
-                const size_t new_len = prefix_len + index_len + 1;
-
-                if (LIKELY(new_len <= KEY_BUFFER_SIZE)) {
-                    // Use stack allocation for small keys
-                    char stack_buffer[KEY_BUFFER_SIZE];
-                    if (prefix_len > 0) {
-                        memcpy(stack_buffer, prefix, prefix_len);
-                        memcpy(stack_buffer + prefix_len, index_str, index_len + 1);
-                    } else {
-                        memcpy(stack_buffer, index_str, index_len + 1);
-                    }
-
-                    // Recursively flatten array elements
-                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
-                        flatten_json_recursive(child, stack_buffer, result);
-                    } else {
-                        add_pair(result, stack_buffer, child);
-                    }
-                } else {
-                    // Fall back to heap allocation
-                    char* new_prefix = (char*)malloc(new_len);
-                    if (prefix_len > 0) {
-                        memcpy(new_prefix, prefix, prefix_len);
-                        memcpy(new_prefix + prefix_len, index_str, index_len + 1);
-                    } else {
-                        memcpy(new_prefix, index_str, index_len + 1);
-                    }
-
-                    if (UNLIKELY(child->type == cJSON_Object || child->type == cJSON_Array)) {
-                        flatten_json_recursive(child, new_prefix, result);
-                    } else {
-                        add_pair(result, new_prefix, child);
-                    }
-                    free(new_prefix);
-                }
-
-                child = child->next;
-                index++;
-            }
-            break;
+    } else if (json->type == cJSON_Array) {
+        cJSON* child = json->child;
+        int i = 0;
+        while (child) {
+            build_key_optimized(key_buffer, sizeof(key_buffer), prefix, NULL, 1, i);
+            flatten_json_recursive(child, key_buffer, result);
+            child = child->next;
+            i++;
         }
-        default:
-            // For primitive types, just add them directly
-            add_pair(result, prefix, json);
-            break;
+    } else {
+        add_pair(result, prefix, json);
     }
 }
 
@@ -417,49 +331,16 @@ cJSON* create_flattened_json(FlattenedArray* flattened_array) {
 
 // Flatten a single JSON object with optimized initial capacity estimation
 cJSON* flatten_single_object(cJSON* json) {
-    if (UNLIKELY(!json)) return NULL;
-
-    // Estimate initial capacity based on JSON structure
-    int estimated_capacity = INITIAL_ARRAY_CAPACITY;
-    if (json->type == cJSON_Object) {
-        // Count immediate children to estimate capacity
-        int child_count = 0;
-        cJSON* child = json->child;
-        while (child && child_count < 100) { // Limit counting for performance
-            child_count++;
-            child = child->next;
-        }
-        estimated_capacity = child_count * 2; // Estimate 2x for nested structures
-    }
+    if (!json) return NULL;
 
     FlattenedArray flattened_array;
-    init_flattened_array(&flattened_array, estimated_capacity);
-    
-    if (json->type == cJSON_Object) {
-        cJSON* child = json->child;
-        while (child != NULL) {
-            if (child->type == cJSON_Object || child->type == cJSON_Array) {
-                flatten_json_recursive(child, child->string, &flattened_array);
-            } else {
-                add_pair(&flattened_array, child->string, child);
-            }
-            child = child->next;
-        }
-    } else if (json->type == cJSON_Array) {
-        flatten_json_recursive(json, "", &flattened_array);
-    } else {
-        // If the root is a primitive value, just return a copy
-        cJSON* result = cJSON_Duplicate(json, 1);
-        free_flattened_array(&flattened_array);
-        return result;
-    }
-    
-    // Create a new JSON object with the flattened key-value pairs
+    init_flattened_array(&flattened_array, INITIAL_ARRAY_CAPACITY);
+
+    flatten_json_recursive(json, "", &flattened_array);
+
     cJSON* flattened_json = create_flattened_json(&flattened_array);
-    
-    // Clean up
     free_flattened_array(&flattened_array);
-    
+
     return flattened_json;
 }
 

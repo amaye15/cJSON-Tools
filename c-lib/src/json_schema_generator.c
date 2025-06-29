@@ -153,14 +153,9 @@ typedef struct {
 
 // Create a new schema node with optimized initialization
 SchemaNode* create_schema_node(SchemaType type) {
-    // Initialize global memory pools if not already done
-    if (!g_cjson_node_pool) {
-        init_global_pools();
-    }
-    SchemaNode* node = (SchemaNode*)malloc(sizeof(SchemaNode));
-    if (__builtin_expect(!node, 0)) return NULL;
+    SchemaNode* node = POOL_ALLOC(g_cjson_node_pool);
+    if (UNLIKELY(!node)) return NULL;
 
-    // Use memset for faster initialization
     memset(node, 0, sizeof(SchemaNode));
     node->type = type;
     node->required = 1;
@@ -170,17 +165,8 @@ SchemaNode* create_schema_node(SchemaType type) {
 
 // Cache-optimized property addition with consistent memory allocation
 HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* property_schema, int required) {
-    // Always use regular malloc for property nodes to ensure consistent freeing
-    PropertyNode* prop = (PropertyNode*)malloc(sizeof(PropertyNode));
+    PropertyNode* prop = POOL_ALLOC(g_property_node_pool);
     if (UNLIKELY(!prop)) return;
-
-    // Use string view for faster string operations
-#ifdef _MSC_VER
-    StringView name_view = make_string_view_cstr(name);
-    (void)name_view; // Suppress unused variable warning
-#else
-    StringView name_view __attribute__((unused)) = make_string_view_cstr(name);
-#endif
 
     prop->name = my_strdup(name);
     prop->schema = property_schema;
@@ -188,7 +174,6 @@ HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* prope
     prop->next = node->properties;
     node->properties = prop;
 
-    // Add to required properties list if required
     if (required) {
         if (UNLIKELY(node->required_count >= node->required_capacity)) {
             int new_capacity = node->required_capacity == 0 ? INITIAL_REQUIRED_CAPACITY : node->required_capacity * 2;
@@ -218,36 +203,29 @@ PropertyNode* find_property(SchemaNode* node, const char* name) {
 void free_schema_node(SchemaNode* node) {
     if (!node) return;
 
-    // Free array items schema
     if (node->items) {
         free_schema_node(node->items);
     }
 
-    // Free object properties with consistent memory management
     PropertyNode* prop = node->properties;
     while (prop) {
         PropertyNode* next = prop->next;
         free(prop->name);
         free_schema_node(prop->schema);
-
-        // Always use regular free since we use regular malloc
-        free(prop);
+        POOL_FREE(g_property_node_pool, prop);
         prop = next;
     }
 
-    // Free required properties list
     for (int i = 0; i < node->required_count; i++) {
         free(node->required_props[i]);
     }
     free(node->required_props);
 
-    // Free enum values
     if (node->enum_values) {
         cJSON_Delete(node->enum_values);
     }
 
-    // Always use regular free for schema nodes since they're allocated with malloc
-    free(node);
+    POOL_FREE(g_cjson_node_pool, node);
 }
 
 // Optimized schema type detection with better number handling
@@ -612,151 +590,43 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
     if (!json_array || json_array->type != cJSON_Array) {
         return NULL;
     }
-    
+
     int array_size = cJSON_GetArraySize(json_array);
     if (array_size == 0) {
-        return NULL;
+        return cJSON_CreateObject();
     }
-    
-    // If only one item, process directly
-    if (array_size == 1) {
-        cJSON* item = cJSON_GetArrayItem(json_array, 0);
-        return generate_schema_from_object(item);
-    }
-    
-    // Determine if multi-threading should be used
-    // Only use multi-threading if:
-    // 1. Threading is enabled
-    // 2. Array size is large enough to justify threading
-    // 3. We have more than one thread available
-    int should_use_threads = use_threads && 
-                            array_size >= MIN_BATCH_SIZE_FOR_MT && 
-                            get_optimal_threads(num_threads) > 1;
-    
-    // Extract all objects into an array for easier access
-    cJSON** objects = (cJSON**)malloc(array_size * sizeof(cJSON*));
+
     SchemaNode** schemas = (SchemaNode**)malloc(array_size * sizeof(SchemaNode*));
-    
-    for (int i = 0; i < array_size; i++) {
-        objects[i] = cJSON_GetArrayItem(json_array, i);
-        schemas[i] = NULL;
-    }
-    
-    // If threading disabled or not beneficial, process sequentially
-    if (!should_use_threads) {
-        for (int i = 0; i < array_size; i++) {
-            schemas[i] = analyze_json_value(objects[i]);
+    if (!schemas) return NULL;
+
+    if (use_threads && array_size >= MIN_BATCH_SIZE_FOR_MT) {
+        ThreadPool* pool = thread_pool_create(num_threads);
+        if (pool) {
+            for (int i = 0; i < array_size; i++) {
+                ThreadData* data = malloc(sizeof(ThreadData));
+                data->object = cJSON_GetArrayItem(json_array, i);
+                thread_pool_add_task(pool, generate_schema_task, data);
+            }
+            thread_pool_destroy(pool);
+        } else {
+            for (int i = 0; i < array_size; i++) {
+                schemas[i] = analyze_json_value(cJSON_GetArrayItem(json_array, i));
+            }
         }
     } else {
-        // Multi-threaded processing with thread pool
-        ThreadPool* pool = thread_pool_create(num_threads);
-        if (!pool) {
-            // Fall back to sequential processing if thread pool creation fails
-            for (int i = 0; i < array_size; i++) {
-                schemas[i] = analyze_json_value(objects[i]);
-            }
-        } else {
-            pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
-            
-            // Create an array of thread data structures
-            ThreadData** thread_data_array = (ThreadData**)calloc(array_size, sizeof(ThreadData*));
-            if (!thread_data_array) {
-                // Fall back to sequential processing
-                for (int i = 0; i < array_size; i++) {
-                    schemas[i] = analyze_json_value(objects[i]);
-                }
-            } else {
-                // Submit tasks to thread pool
-                for (int i = 0; i < array_size; i++) {
-                    ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
-                    if (!data) continue;
-                    
-                    data->object = objects[i];
-                    data->result = NULL;
-                    data->result_mutex = &result_mutex;
-                    
-                    // Store the thread data for later collection
-                    thread_data_array[i] = data;
-                    
-                    // Add task to thread pool
-                    if (thread_pool_add_task(pool, generate_schema_task, data) != 0) {
-                        // If adding task fails, process it directly
-                        generate_schema_task(data);
-                    }
-                }
-                
-                // Wait for all tasks to complete
-                thread_pool_wait(pool);
-                
-                // Collect results with null checking
-                for (int i = 0; i < array_size; i++) {
-                    if (thread_data_array[i]) {
-                        schemas[i] = thread_data_array[i]->result;
-
-                        // Free the individual thread data
-                        free(thread_data_array[i]);
-                        thread_data_array[i] = NULL;
-                    } else {
-                        // If thread data allocation failed, set schema to NULL
-                        schemas[i] = NULL;
-                    }
-                }
-                
-                // Free the thread data array
-                free(thread_data_array);
-            }
-            
-            pthread_mutex_destroy(&result_mutex);
-            thread_pool_destroy(pool);
-        }
-    }
-    
-    // Create a merged schema by combining all valid schemas
-    SchemaNode* merged_schema = create_schema_node(TYPE_OBJECT);
-    if (!merged_schema) {
-        free(objects);
-        free(schemas);
-        return NULL;
-    }
-
-    // Merge properties from all valid schemas
-    for (int i = 0; i < array_size; i++) {
-        if (schemas[i] != NULL && schemas[i]->type == TYPE_OBJECT) {
-            // Copy all properties from this schema to the merged schema
-            PropertyNode* prop = schemas[i]->properties;
-            while (prop) {
-                // Check if property already exists in merged schema
-                PropertyNode* existing = find_property(merged_schema, prop->name);
-                if (!existing) {
-                    // Create a copy of the property schema
-                    SchemaNode* prop_copy = create_schema_node(prop->schema->type);
-                    if (prop_copy) {
-                        // Copy basic properties
-                        prop_copy->nullable = prop->schema->nullable;
-                        prop_copy->required = prop->schema->required;
-
-                        // Add the property to merged schema
-                        add_property(merged_schema, prop->name, prop_copy, prop->required);
-                    }
-                }
-                prop = prop->next;
-            }
+        for (int i = 0; i < array_size; i++) {
+            schemas[i] = analyze_json_value(cJSON_GetArrayItem(json_array, i));
         }
     }
 
-    // Free all individual schemas
-    for (int i = 0; i < array_size; i++) {
-        if (schemas[i] != NULL) {
-            free_schema_node(schemas[i]);
-        }
+    SchemaNode* merged_schema = schemas[0];
+    for (int i = 1; i < array_size; i++) {
+        merged_schema = merge_schema_nodes(merged_schema, schemas[i]);
+        free_schema_node(schemas[i]);
     }
 
-    // Convert to JSON
     cJSON* result = schema_node_to_json(merged_schema);
-
-    // Clean up the merged schema and arrays
     free_schema_node(merged_schema);
-    free(objects);
     free(schemas);
 
     return result;
