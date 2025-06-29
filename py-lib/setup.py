@@ -91,7 +91,7 @@ cjson_tools_module = Extension(
         os.path.join(c_lib_src, "json_utils.c"),
         os.path.join(c_lib_src, "thread_pool.c"),
         os.path.join(c_lib_src, "memory_pool.c"),
-        os.path.join(c_lib_src, "simd_utils.c"),
+        os.path.join(c_lib_src, "json_parser_simd.c"),
         os.path.join(c_lib_src, "lockfree_queue.c"),
     ],
     include_dirs=[
