@@ -68,7 +68,7 @@ elif is_mingw_cross_compile:
     ]
     extra_link_args = ["-static-libgcc", "-static-libstdc++", "-lpthread"]
 else:
-    # Unix-like systems (Linux, macOS)
+    # Unix-like systems (Linux, macOS) with target-specific optimizations
     libraries.append("pthread")
     extra_compile_args = [
         "-std=c99",
@@ -77,7 +77,28 @@ else:
         "-O3",
         "-flto",
         "-DNDEBUG",
+        "-ffast-math",
+        "-funroll-loops",
     ]
+
+    # Target-specific optimizations
+    import platform
+    if platform.machine() == 'x86_64':
+        extra_compile_args.extend([
+            "-march=native",
+            "-mtune=native",
+            "-msse4.2",
+            "-mavx2"
+        ])
+    elif platform.machine() == 'aarch64':
+        extra_compile_args.extend([
+            "-march=native",
+            "-mcpu=native"
+        ])
+    else:
+        # Generic optimizations for other architectures
+        extra_compile_args.extend(["-march=native", "-mtune=native"])
+
     extra_link_args = ["-flto"]
 
 # Define the extension module

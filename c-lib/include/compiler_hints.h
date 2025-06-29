@@ -35,7 +35,11 @@
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define ASSUME_ALIGNED(ptr, alignment) __builtin_assume_aligned(ptr, alignment)
-#define PREFETCH_READ(ptr) __builtin_prefetch(ptr, 0, 3)
+// Distance-aware prefetching for better cache performance
+#define PREFETCH_READ_NEAR(ptr) __builtin_prefetch(ptr, 0, 3)      // L1 cache
+#define PREFETCH_READ_FAR(ptr) __builtin_prefetch(ptr, 0, 2)       // L2 cache
+#define PREFETCH_READ_STREAM(ptr) __builtin_prefetch(ptr, 0, 0)    // Non-temporal
+#define PREFETCH_READ(ptr) PREFETCH_READ_NEAR(ptr)  // Default to near
 #define PREFETCH_WRITE(ptr) __builtin_prefetch(ptr, 1, 3)
 #define RESTRICT __restrict__
 #define PACKED __attribute__((packed))
@@ -98,6 +102,7 @@
     #define PREFETCH_L1(ptr) __asm__ ("prfm pldl1keep, %0" :: "Q"(*(ptr)))
     #define PREFETCH_L2(ptr) __asm__ ("prfm pldl2keep, %0" :: "Q"(*(ptr)))
     #define PREFETCH_L3(ptr) __asm__ ("prfm pldl3keep, %0" :: "Q"(*(ptr)))
+    #undef PREFETCH_WRITE  // Undefine to avoid redefinition warning
     #define PREFETCH_WRITE(ptr) __asm__ ("prfm pstl1keep, %0" :: "Q"(*(ptr)))
     #define PREFETCH_NTA(ptr) __asm__ ("prfm pldl1strm, %0" :: "Q"(*(ptr)))
 #else

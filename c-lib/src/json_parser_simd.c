@@ -33,19 +33,12 @@ static void detect_cpu_features(void) {
         #ifdef __GNUC__
         unsigned int eax, ebx, ecx, edx;
 
-        // Check for AVX2 support
-        if (__builtin_cpu_supports("avx2")) {
-            has_avx2 = 1;
-        } else {
-            has_avx2 = 0;
-        }
+        // Optimized CPU feature detection using direct CPUID
+        __get_cpuid(7, &eax, &ebx, &ecx, &edx);
+        has_avx2 = (ebx & (1 << 5)) != 0;  // Direct bit check for AVX2
 
-        // Check for SSE2 support
-        if (__builtin_cpu_supports("sse2")) {
-            has_sse2 = 1;
-        } else {
-            has_sse2 = 0;
-        }
+        __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+        has_sse2 = (edx & (1 << 26)) != 0;  // Direct bit check for SSE2
         #else
         // Fallback for non-GCC compilers
         has_avx2 = 0;

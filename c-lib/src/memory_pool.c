@@ -96,9 +96,9 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
     SlabAllocator* allocator = malloc(sizeof(SlabAllocator));
     if (!allocator) return NULL;
 
-    // Optimize alignment based on actual cache line size
-    size_t cache_line_size = get_cache_line_size();
-    allocator->object_size = (object_size + cache_line_size - 1) & ~(cache_line_size - 1);
+    // Use compile-time constant for faster calculation (64 bytes is typical cache line size)
+    #define LIKELY_CACHE_LINE_SIZE 64
+    allocator->object_size = (object_size + 63) & ~63;  // Faster compile-time calculation
 
     // Optimize slab size for better memory utilization
     size_t optimal_slab_size = 4096;
@@ -162,7 +162,7 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
 // Lock-free allocation using atomic operations
 void* slab_alloc(SlabAllocator* allocator) {
     if (!allocator) return malloc(64); // Fallback
-    
+
     void* old_head;
     void* new_head;
     
@@ -176,7 +176,7 @@ void* slab_alloc(SlabAllocator* allocator) {
         new_head = *(void**)old_head;
     } while (!__atomic_compare_exchange_n(&allocator->free_list, &old_head, new_head,
                                          false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
-    
+
     __atomic_fetch_add(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
     return old_head;
 }
@@ -204,7 +204,7 @@ void slab_free(SlabAllocator* allocator, void* ptr) {
         *(void**)ptr = old_head;
     } while (!__atomic_compare_exchange_n(&allocator->free_list, &old_head, ptr,
                                          false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
-    
+
     __atomic_fetch_sub(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
 }
 

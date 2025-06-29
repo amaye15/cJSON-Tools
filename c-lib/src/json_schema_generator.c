@@ -56,6 +56,7 @@ typedef struct SchemaNode {
 // Structure to represent a property in an object
 typedef struct PropertyNode {
     char* name;
+    size_t name_len;  // Cache string length for faster comparisons
     SchemaNode* schema;
     int required;
     struct PropertyNode* next;
@@ -79,14 +80,16 @@ static inline uint32_t hash_property_name_optimized(const char* name) {
     return hash & (PROPERTY_HASH_SIZE_OPTIMIZED - 1);  // Fast modulo with power of 2
 }
 
-// Optimized property lookup using hash table
+// Optimized property lookup using hash table with string length pre-check
 static PropertyNode* find_property_optimized(PropertyHashTableOptimized* table, const char* name) {
     uint32_t bucket = hash_property_name_optimized(name);
     PropertyNode* prop = table->buckets[bucket];
+    size_t name_len = strlen(name);  // Calculate once
 
     while (prop) {
         // Use likely/unlikely hints for better branch prediction
-        if (LIKELY(strcmp(prop->name, name) == 0)) {
+        // Pre-check string length before expensive strcmp
+        if (LIKELY(prop->name_len == name_len && strcmp(prop->name, name) == 0)) {
             return prop;
         }
         prop = prop->next;
@@ -169,6 +172,7 @@ HOT_PATH void add_property(SchemaNode* node, const char* name, SchemaNode* prope
     if (UNLIKELY(!prop)) return;
 
     prop->name = my_strdup(name);
+    prop->name_len = strlen(name);  // Cache string length for faster lookups
     prop->schema = property_schema;
     prop->required = required;
     prop->next = node->properties;

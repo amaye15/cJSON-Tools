@@ -63,8 +63,8 @@ typedef struct {
 
 // Optimized memory allocation from pool with 16-byte alignment
 static char* pool_alloc(FlattenedArray* array, size_t size) {
-    // Use power-of-2 alignment for better cache performance
-    size = (size + 15) & ~15;  // 16-byte alignment instead of 8
+    // Use 8-byte alignment for better cache performance (sufficient for most cases)
+    size = (size + 7) & ~7;  // 8-byte alignment is sufficient and faster
 
     if (array->pool_used + size <= array->pool_size) {
         char* ptr = array->memory_pool + array->pool_used;
@@ -235,8 +235,8 @@ HOT_PATH static char* pool_strdup(FlattenedArray* array, const char* str) {
 HOT_PATH void add_pair(FlattenedArray* array, const char* key, cJSON* value) {
     // Resize if needed with better growth strategy
     if (UNLIKELY(array->count >= array->capacity)) {
-        // Grow by 1.5x instead of 2x to reduce memory waste
-        int new_capacity = array->capacity + (array->capacity >> 1);
+        // Power-of-2 growth for better memory alignment and cache performance
+        int new_capacity = array->capacity << 1;  // Double capacity
         FlattenedPair* new_pairs = (FlattenedPair*)realloc(array->pairs, new_capacity * sizeof(FlattenedPair));
         if (UNLIKELY(!new_pairs)) {
             return; // Handle allocation failure gracefully

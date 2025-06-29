@@ -150,3 +150,22 @@ setup-hooks:
 	@echo "🪝 Installing pre-commit hooks..."
 	pre-commit install
 	@echo "✅ Pre-commit hooks installed!"
+
+# Profile-guided optimization targets
+pgo-generate:
+	@echo "🎯 Building with profile generation..."
+	$(MAKE) clean
+	$(MAKE) CFLAGS_OPT="$(CFLAGS_OPT) -fprofile-generate" all
+	@echo "✅ Profile generation build complete!"
+
+pgo-use:
+	@echo "🚀 Building with profile-guided optimization..."
+	$(MAKE) clean
+	$(MAKE) CFLAGS_OPT="$(CFLAGS_OPT) -fprofile-use" all
+	@echo "✅ PGO optimized build complete!"
+
+pgo-full: pgo-generate
+	@echo "📊 Running training workload for PGO..."
+	cd c-lib/tests && ./run_dynamic_tests.sh --sizes "1000,10000" --quick
+	$(MAKE) pgo-use
+	@echo "🎯 Full PGO optimization complete!"
