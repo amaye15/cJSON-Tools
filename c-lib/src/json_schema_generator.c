@@ -602,12 +602,19 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
     if (use_threads && array_size >= MIN_BATCH_SIZE_FOR_MT) {
         ThreadPool* pool = thread_pool_create(num_threads);
         if (pool) {
+            ThreadData* thread_data_array = malloc(array_size * sizeof(ThreadData));
             for (int i = 0; i < array_size; i++) {
-                ThreadData* data = malloc(sizeof(ThreadData));
-                data->object = cJSON_GetArrayItem(json_array, i);
-                thread_pool_add_task(pool, generate_schema_task, data);
+                thread_data_array[i].object = cJSON_GetArrayItem(json_array, i);
+                thread_data_array[i].result = NULL;
+                thread_pool_add_task(pool, generate_schema_task, &thread_data_array[i]);
             }
             thread_pool_destroy(pool);
+
+            // Collect results from thread data
+            for (int i = 0; i < array_size; i++) {
+                schemas[i] = thread_data_array[i].result;
+            }
+            free(thread_data_array);
         } else {
             for (int i = 0; i < array_size; i++) {
                 schemas[i] = analyze_json_value(cJSON_GetArrayItem(json_array, i));
