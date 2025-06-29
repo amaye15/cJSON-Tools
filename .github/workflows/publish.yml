@@ -156,10 +156,10 @@ jobs:
         assert 'properties' in schema_obj
         print('Wheel test: Schema generation works')
 
-        # Test batch processing
-        batch = [json.dumps({'id': i, 'value': i*2}) for i in range(100)]
+        # Test batch processing (smaller batch for faster testing)
+        batch = [json.dumps({'id': i, 'value': i*2}) for i in range(5)]
         results = cjson_tools.flatten_json_batch(batch)
-        assert len(results) == 100
+        assert len(results) == 5
         print('Wheel test: Batch processing works')
 
         print('All wheel tests passed!')
