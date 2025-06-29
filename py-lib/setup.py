@@ -83,13 +83,20 @@ else:
 
     # Target-specific optimizations
     import platform
+    import sys
 
     if platform.machine() == "x86_64":
         extra_compile_args.extend(
             ["-march=native", "-mtune=native", "-msse4.2", "-mavx2"]
         )
-    elif platform.machine() == "aarch64":
-        extra_compile_args.extend(["-march=native", "-mcpu=native"])
+    elif platform.machine() in ["aarch64", "arm64"]:
+        # ARM64 optimizations (Linux and macOS)
+        if sys.platform == "darwin":
+            # macOS ARM64 - avoid -march=native which causes issues
+            extra_compile_args.extend(["-mcpu=apple-a14"])
+        else:
+            # Linux ARM64
+            extra_compile_args.extend(["-march=native", "-mcpu=native"])
     else:
         # Generic optimizations for other architectures
         extra_compile_args.extend(["-march=native", "-mtune=native"])
