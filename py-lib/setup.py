@@ -39,11 +39,12 @@ is_mingw_cross_compile = (
 if is_windows:
     # Native Windows build with MSVC - Enhanced compatibility
     extra_compile_args = [
-        "/std:c11",
+        "/std:c17",  # Use C17 instead of C11 for better MSVC atomic support
         "/O2",
         "/GL",
         "/DNDEBUG",
-        "/DTHREADING_DISABLED",
+        "/DTHREADING_DISABLED",  # Disable threading on Windows due to atomic support issues
+        "/DWIN32_LEAN_AND_MEAN",
         "/D_CRT_SECURE_NO_WARNINGS",
         "/wd4996",
         "/wd4005",
