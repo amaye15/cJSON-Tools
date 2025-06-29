@@ -6,6 +6,10 @@
 #include <stdatomic.h>
 #endif
 
+#ifdef _MSC_VER
+#include <malloc.h>  // For _aligned_malloc and _aligned_free
+#endif
+
 #if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
 #define __WINDOWS__
 #endif
@@ -69,8 +73,14 @@ static size_t get_cache_line_size(void) {
     return cache_line_size;
 }
 
-// For aligned_alloc - only define if not available
-#if !defined(__APPLE__) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L)
+// For aligned_alloc - provide Windows and fallback implementations
+#ifdef _MSC_VER
+// Windows MSVC implementation
+static inline void* my_aligned_alloc(size_t alignment, size_t size) {
+    return _aligned_malloc(size, alignment);
+}
+#define aligned_alloc my_aligned_alloc
+#elif !defined(__APPLE__) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L)
 #if defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
 static inline void* my_aligned_alloc(size_t alignment, size_t size) {
     void* ptr;
@@ -241,6 +251,9 @@ void slab_allocator_destroy(SlabAllocator* allocator) {
     } else {
         free(allocator->memory);
     }
+#elif defined(_MSC_VER)
+    // Windows MSVC - use _aligned_free for memory allocated with _aligned_malloc
+    _aligned_free(allocator->memory);
 #else
     free(allocator->memory);
 #endif

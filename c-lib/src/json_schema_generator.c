@@ -10,6 +10,11 @@
 #include <string.h>
 #include <stdbool.h>
 
+// Windows compatibility for __builtin_expect
+#ifdef _MSC_VER
+#define __builtin_expect(expr, expected) (expr)
+#endif
+
 // Enhanced hash table optimization will be defined after PropertyNode
 #include <limits.h>
 
