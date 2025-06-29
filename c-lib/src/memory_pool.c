@@ -1,7 +1,10 @@
 #include "../include/memory_pool.h"
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef THREADING_DISABLED
 #include <stdatomic.h>
+#endif
 
 #if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
 #define __WINDOWS__
@@ -159,26 +162,39 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
     return allocator;
 }
 
-// Lock-free allocation using atomic operations
+// Lock-free allocation using atomic operations (when threading enabled)
 void* slab_alloc(SlabAllocator* allocator) {
     if (!allocator) return malloc(64); // Fallback
 
+#ifndef THREADING_DISABLED
     void* old_head;
     void* new_head;
-    
+
     do {
         old_head = __atomic_load_n(&allocator->free_list, __ATOMIC_ACQUIRE);
         if (!old_head) {
             // Pool exhausted, fallback to malloc
             return malloc(allocator->object_size);
         }
-        
+
         new_head = *(void**)old_head;
     } while (!__atomic_compare_exchange_n(&allocator->free_list, &old_head, new_head,
                                          false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
 
     __atomic_fetch_add(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
     return old_head;
+#else
+    // Simple non-atomic allocation for single-threaded environments
+    void* old_head = allocator->free_list;
+    if (!old_head) {
+        // Pool exhausted, fallback to malloc
+        return malloc(allocator->object_size);
+    }
+
+    allocator->free_list = *(void**)old_head;
+    allocator->allocated_objects++;
+    return old_head;
+#endif
 }
 
 void slab_free(SlabAllocator* allocator, void* ptr) {
@@ -197,6 +213,7 @@ void slab_free(SlabAllocator* allocator, void* ptr) {
         return;
     }
     
+#ifndef THREADING_DISABLED
     // Add back to free list atomically
     void* old_head;
     do {
@@ -206,6 +223,12 @@ void slab_free(SlabAllocator* allocator, void* ptr) {
                                          false, __ATOMIC_RELEASE, __ATOMIC_RELAXED));
 
     __atomic_fetch_sub(&allocator->allocated_objects, 1, __ATOMIC_RELAXED);
+#else
+    // Simple non-atomic free for single-threaded environments
+    *(void**)ptr = allocator->free_list;
+    allocator->free_list = ptr;
+    allocator->allocated_objects--;
+#endif
 }
 
 void slab_allocator_destroy(SlabAllocator* allocator) {
