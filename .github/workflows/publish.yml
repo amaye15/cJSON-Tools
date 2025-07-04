@@ -218,7 +218,7 @@ jobs:
       with:
         repository-url: https://test.pypi.org/legacy/
         packages-dir: final-dist/
-        user: ${{ secrets.PIP_USERNAME }}
+        user: __token__
         password: ${{ secrets.PIP_API_TOKEN }}
         verbose: true
 
@@ -227,7 +227,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         packages-dir: final-dist/
-        user: ${{ secrets.PIP_USERNAME }}
+        user: __token__
         password: ${{ secrets.PIP_API_TOKEN }}
         verbose: true
 
