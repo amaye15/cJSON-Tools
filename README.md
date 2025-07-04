@@ -12,9 +12,11 @@
 A high-performance C toolkit for transforming and analyzing JSON data with Python bindings. cJSON-Tools provides powerful tools for:
 
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
-2. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
-3. **Multi-threading Support**: Optimized performance for processing large JSON datasets
-4. **Python Bindings**: Use the library directly from Python with native C performance
+2. **Path Type Analysis**: Get flattened paths with their data types for schema discovery
+3. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
+4. **Multi-threading Support**: Optimized performance for processing large JSON datasets
+5. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
+6. **Python Bindings**: Use the library directly from Python with native C performance
 
 ## 🚀 Quick Start
 
@@ -28,9 +30,13 @@ import cjson_tools
 import json
 
 # Flatten nested JSON
-data = {"user": {"name": "John", "address": {"city": "NYC"}}}
+data = {"user": {"name": "John", "address": {"city": "NYC"}, "tags": ["dev", "python"]}}
 flattened = cjson_tools.flatten_json(json.dumps(data))
-print(flattened)  # {"user.name": "John", "user.address.city": "NYC"}
+print(flattened)  # {"user.name": "John", "user.address.city": "NYC", "user.tags[0]": "dev", "user.tags[1]": "python"}
+
+# Get flattened paths with data types
+paths_with_types = cjson_tools.get_flattened_paths_with_types(json.dumps(data))
+print(paths_with_types)  # {"user.name": "string", "user.address.city": "string", "user.tags[0]": "string", "user.tags[1]": "string"}
 
 # Generate JSON schema
 schema = cjson_tools.generate_schema(json.dumps(data))
@@ -206,6 +212,45 @@ print(result)  # {"user.name": "John", "user.details.age": 30, "user.details.cit
 schema = cjson_tools.generate_schema(json.dumps(data))
 schema_obj = json.loads(schema)
 print(schema_obj["properties"])
+```
+
+#### Path Type Analysis
+```python
+# Get flattened paths with their data types
+data = {
+    "user": {
+        "name": "John",
+        "age": 30,
+        "tags": ["developer", "python"],
+        "address": {
+            "coordinates": [40.7128, -74.0060],
+            "city": "New York"
+        },
+        "active": True,
+        "metadata": None
+    }
+}
+
+# Analyze path types
+paths_with_types = cjson_tools.get_flattened_paths_with_types(json.dumps(data))
+result = json.loads(paths_with_types)
+
+# Output shows each flattened path with its data type:
+# {
+#   "user.name": "string",
+#   "user.age": "integer",
+#   "user.tags[0]": "string",
+#   "user.tags[1]": "string",
+#   "user.address.coordinates[0]": "number",
+#   "user.address.coordinates[1]": "number",
+#   "user.address.city": "string",
+#   "user.active": "boolean",
+#   "user.metadata": "null"
+# }
+
+# Perfect for data analysis and schema discovery!
+for path, data_type in result.items():
+    print(f'"{path}": "{data_type}"')
 ```
 
 #### Batch Processing

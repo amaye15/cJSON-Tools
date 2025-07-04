@@ -31,20 +31,9 @@ static void detect_cpu_features(void) {
     if (has_avx2 == -1) {
 #ifdef __x86_64__
         #ifdef __GNUC__
-        unsigned int eax, ebx, ecx, edx;
-
         // Use GCC builtin CPU support detection (more portable)
-        if (__builtin_cpu_supports("avx2")) {
-            has_avx2 = 1;
-        } else {
-            has_avx2 = 0;
-        }
-
-        if (__builtin_cpu_supports("sse2")) {
-            has_sse2 = 1;
-        } else {
-            has_sse2 = 0;
-        }
+        has_avx2 = __builtin_cpu_supports("avx2") ? 1 : 0;
+        has_sse2 = __builtin_cpu_supports("sse2") ? 1 : 0;
         #else
         // Fallback for non-GCC compilers
         has_avx2 = 0;
@@ -308,6 +297,8 @@ HOT_PATH size_t strlen_simd(const char* str) {
     if (has_neon) {
         return strlen_simd_neon(str);
     }
+#else
+    (void)has_neon; // Suppress unused variable warning on non-ARM platforms
 #endif
 
 #ifdef __AVX2__

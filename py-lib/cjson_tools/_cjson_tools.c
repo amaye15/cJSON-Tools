@@ -8,7 +8,7 @@
 #include "../../c-lib/include/thread_pool.h"
 #include "../../c-lib/include/memory_pool.h"
 
-#define MODULE_VERSION "1.4.0"
+#define MODULE_VERSION "1.7.0"
 
 /**
  * Flatten a JSON string
@@ -324,6 +324,56 @@ static PyObject* py_generate_schema_batch(PyObject* self, PyObject* args, PyObje
     return py_result;
 }
 
+/**
+ * Get flattened paths with their data types from a JSON string
+ */
+static PyObject* py_get_flattened_paths_with_types(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
+    const char* json_string;
+    int pretty_print = 0;
+
+    static char* kwlist[] = {"json_string", "pretty_print", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|i", kwlist,
+                                    &json_string, &pretty_print)) {
+        return NULL;
+    }
+
+    char* result;
+
+    // Release GIL during C computation
+    Py_BEGIN_ALLOW_THREADS
+    result = get_flattened_paths_with_types_string(json_string);
+    Py_END_ALLOW_THREADS
+
+    if (result == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Failed to get flattened paths with types");
+        return NULL;
+    }
+
+    // Apply pretty printing if requested
+    char* final_result = result;
+    if (pretty_print) {
+        cJSON* json = cJSON_Parse(result);
+        if (json) {
+            free(result);
+            final_result = cJSON_Print(json);
+            cJSON_Delete(json);
+        }
+    }
+
+    if (final_result == NULL) {
+        if (result != final_result) free(result);
+        PyErr_SetString(PyExc_MemoryError, "Failed to format result");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(final_result);
+    free(final_result);
+
+    return py_result;
+}
+
 
 // Module method definitions with proper function signatures
 static PyMethodDef CJsonToolsMethods[] = {
@@ -335,6 +385,8 @@ static PyMethodDef CJsonToolsMethods[] = {
      "Generate a JSON schema from a JSON string."},
     {"generate_schema_batch", (PyCFunction)(void(*)(void))py_generate_schema_batch, METH_VARARGS | METH_KEYWORDS,
      "Generate a JSON schema from a batch of JSON objects."},
+    {"get_flattened_paths_with_types", (PyCFunction)(void(*)(void))py_get_flattened_paths_with_types, METH_VARARGS | METH_KEYWORDS,
+     "Get flattened paths with their data types from a JSON string. Args: json_string, pretty_print=False"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };
 

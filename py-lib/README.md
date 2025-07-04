@@ -12,9 +12,11 @@
 A high-performance C toolkit for transforming and analyzing JSON data with Python bindings. cJSON-Tools provides powerful tools for:
 
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
-2. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
-3. **Multi-threading Support**: Optimized performance for processing large JSON datasets
-4. **Python Bindings**: Use the library directly from Python with native C performance
+2. **Path Type Analysis**: Get flattened paths with their data types for schema discovery
+3. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
+4. **Multi-threading Support**: Optimized performance for processing large JSON datasets
+5. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
+6. **Python Bindings**: Use the library directly from Python with native C performance
 
 ## 🚀 Quick Start
 

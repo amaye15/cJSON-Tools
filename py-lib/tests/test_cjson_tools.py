@@ -12,6 +12,7 @@ from cjson_tools import (
     flatten_json_batch,
     generate_schema,
     generate_schema_batch,
+    get_flattened_paths_with_types,
 )
 
 
@@ -114,6 +115,52 @@ class TestCJsonTools(unittest.TestCase):
 
         # Multi-threaded with specific thread count
         flatten_json_batch(self.json_batch, use_threads=True, num_threads=2)
+
+    def test_get_flattened_paths_with_types(self):
+        """Test getting flattened paths with their data types."""
+        # Test with nested JSON
+        result = get_flattened_paths_with_types(self.nested_json)
+        self.assertIsNotNone(result)
+
+        # Parse the result to verify structure
+        paths_with_types = json.loads(result)
+        self.assertIsInstance(paths_with_types, dict)
+
+        # Check expected paths and types
+        expected_paths = {
+            "person.name": "string",
+            "person.age": "integer",
+            "person.address.street": "string",
+            "person.address.city": "string"
+        }
+
+        for path, expected_type in expected_paths.items():
+            self.assertIn(path, paths_with_types)
+            self.assertEqual(paths_with_types[path], expected_type)
+
+        # Test with simple JSON including arrays
+        simple_json = '{"name": "John", "age": 30, "score": 95.5, "active": true, "data": null, "tags": ["dev", "python"]}'
+        result = get_flattened_paths_with_types(simple_json)
+        paths_with_types = json.loads(result)
+
+        expected_simple = {
+            "name": "string",
+            "age": "integer",
+            "score": "number",
+            "active": "boolean",
+            "data": "null",
+            "tags[0]": "string",
+            "tags[1]": "string"
+        }
+
+        for path, expected_type in expected_simple.items():
+            self.assertIn(path, paths_with_types)
+            self.assertEqual(paths_with_types[path], expected_type)
+
+        # Test pretty printing
+        pretty_result = get_flattened_paths_with_types(simple_json, pretty_print=True)
+        self.assertIsNotNone(pretty_result)
+        self.assertIn('\n', pretty_result)  # Should have newlines for pretty printing
 
     def test_version(self):
         """Test that version is available."""

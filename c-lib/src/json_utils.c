@@ -98,6 +98,7 @@ char* my_strdup(const char* str) {
  * Memory-mapped file reading for large files
  */
 static char* read_json_file_mmap(const char* filename) {
+    (void)filename; // Suppress unused parameter warning on non-Unix systems
 #ifdef __unix__
     int fd = open(filename, O_RDONLY);
     if (fd == -1) return NULL;

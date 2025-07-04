@@ -146,12 +146,28 @@ SlabAllocator* slab_allocator_create(size_t object_size, size_t initial_objects)
     if (allocator->memory != MAP_FAILED) {
         allocator->use_huge_pages = true;
     } else {
-        // Fallback to regular allocation
-        allocator->memory = aligned_alloc(CACHE_LINE_SIZE, slab_size);
+        // Fallback to regular allocation with dynamic cache line size
+        size_t alignment = get_cache_line_size();
+        #if defined(__APPLE__) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
+        // macOS < 10.15 compatibility: use posix_memalign
+        if (posix_memalign(&allocator->memory, alignment, slab_size) != 0) {
+            allocator->memory = NULL;
+        }
+        #else
+        allocator->memory = aligned_alloc(alignment, slab_size);
+        #endif
     }
 #else
-    // Windows/other platforms
-    allocator->memory = aligned_alloc(CACHE_LINE_SIZE, slab_size);
+    // Windows/other platforms with dynamic cache line size
+    size_t alignment = get_cache_line_size();
+    #if defined(__APPLE__) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
+    // macOS < 10.15 compatibility: use posix_memalign
+    if (posix_memalign(&allocator->memory, alignment, slab_size) != 0) {
+        allocator->memory = NULL;
+    }
+    #else
+    allocator->memory = aligned_alloc(alignment, slab_size);
+    #endif
 #endif
 
     if (!allocator->memory) {

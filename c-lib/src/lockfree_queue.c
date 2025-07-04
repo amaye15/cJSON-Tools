@@ -26,7 +26,7 @@
 #else
     // Unix-like systems with C11 atomics
     #include <stdatomic.h>
-    #define MEMORY_BARRIER() __sync_synchronize()
+    // Note: MEMORY_BARRIER() is defined in compiler_hints.h
 #endif
 
 

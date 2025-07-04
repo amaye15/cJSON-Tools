@@ -75,46 +75,11 @@ typedef struct PropertyHashTableOptimized {
     uint32_t count;
 } PropertyHashTableOptimized;
 
-// FNV-1a hash function for better distribution
-static inline uint32_t hash_property_name_optimized(const char* name) {
-    uint32_t hash = 2166136261u;
-    while (*name) {
-        hash ^= (uint8_t)*name++;
-        hash *= 16777619u;
-    }
-    return hash & (PROPERTY_HASH_SIZE_OPTIMIZED - 1);  // Fast modulo with power of 2
-}
+// Note: Optimized hash function removed to eliminate unused code warnings
 
-// Optimized property lookup using hash table with string length pre-check
-static PropertyNode* find_property_optimized(PropertyHashTableOptimized* table, const char* name) {
-    uint32_t bucket = hash_property_name_optimized(name);
-    PropertyNode* prop = table->buckets[bucket];
-    size_t name_len = strlen(name);  // Calculate once
+// Note: Optimized property lookup function removed to eliminate unused code warnings
 
-    while (prop) {
-        // Use likely/unlikely hints for better branch prediction
-        // Pre-check string length before expensive strcmp
-        if (LIKELY(prop->name_len == name_len && strcmp(prop->name, name) == 0)) {
-            return prop;
-        }
-        prop = prop->next;
-    }
-    return NULL;
-}
-
-// Add property to optimized hash table
-static void add_property_to_hash_optimized(PropertyHashTableOptimized* table, PropertyNode* prop) {
-    uint32_t bucket = hash_property_name_optimized(prop->name);
-    prop->next = table->buckets[bucket];
-    table->buckets[bucket] = prop;
-    table->count++;
-}
-
-// Initialize optimized hash table
-static void init_property_hash_table_optimized(PropertyHashTableOptimized* table) {
-    memset(table->buckets, 0, sizeof(table->buckets));
-    table->count = 0;
-}
+// Note: Optimized hash table functions removed to eliminate unused code warnings
 
 // Hash table for O(1) property lookup
 typedef struct PropertyHash {

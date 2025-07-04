@@ -531,6 +531,135 @@ char* flatten_json_string(const char* json_string, int use_threads, int num_thre
     return result;
 }
 
+// Helper function to get the data type string for a cJSON value
+static const char* get_cjson_type_string(const cJSON* item) {
+    if (!item) return "null";
+
+    switch (item->type & 0xFF) {
+        case cJSON_False:
+        case cJSON_True:
+            return "boolean";
+        case cJSON_NULL:
+            return "null";
+        case cJSON_Number:
+            // Check if it's an integer or float
+            if (item->valuedouble == (double)item->valueint) {
+                return "integer";
+            } else {
+                return "number";
+            }
+        case cJSON_String:
+            return "string";
+        case cJSON_Array:
+            return "array";
+        case cJSON_Object:
+            return "object";
+        default:
+            return "unknown";
+    }
+}
+
+// Recursive function to collect flattened paths with types
+static void collect_paths_with_types_recursive(const cJSON* json, const char* prefix, cJSON* result) {
+    if (!json || !result) return;
+
+    char key_buffer[MAX_KEY_LENGTH];
+    const cJSON* child = NULL;
+
+    if (cJSON_IsArray(json)) {
+        // Handle arrays by iterating through indices
+        int index = 0;
+        cJSON_ArrayForEach(child, json) {
+            // Build the array index path using ultra-optimized function
+            build_key_ultra_optimized(key_buffer, sizeof(key_buffer), prefix, NULL, 1, index);
+
+            if (cJSON_IsObject(child) && child->child) {
+                // Recursively process nested objects
+                collect_paths_with_types_recursive(child, key_buffer, result);
+            } else if (cJSON_IsArray(child)) {
+                // Recursively process nested arrays
+                collect_paths_with_types_recursive(child, key_buffer, result);
+            } else {
+                // Add the path and its type to the result
+                const char* type_str = get_cjson_type_string(child);
+                cJSON* type_value = cJSON_CreateString(type_str);
+                if (type_value) {
+                    cJSON_AddItemToObject(result, key_buffer, type_value);
+                }
+            }
+            index++;
+        }
+    } else {
+        // Handle objects by iterating through properties
+        cJSON_ArrayForEach(child, json) {
+            const char* child_name = child->string;
+            if (!child_name) continue;
+
+            // Build the full path using ultra-optimized function
+            if (prefix && strlen(prefix) > 0) {
+                build_key_ultra_optimized(key_buffer, sizeof(key_buffer), prefix, child_name, 0, 0);
+            } else {
+                safe_strncpy(key_buffer, child_name, sizeof(key_buffer));
+            }
+
+            if (cJSON_IsObject(child) && child->child) {
+                // Recursively process nested objects
+                collect_paths_with_types_recursive(child, key_buffer, result);
+            } else if (cJSON_IsArray(child)) {
+                // Recursively process arrays
+                collect_paths_with_types_recursive(child, key_buffer, result);
+            } else {
+                // Add the path and its type to the result
+                const char* type_str = get_cjson_type_string(child);
+                cJSON* type_value = cJSON_CreateString(type_str);
+                if (type_value) {
+                    cJSON_AddItemToObject(result, key_buffer, type_value);
+                }
+            }
+        }
+    }
+}
+
+cJSON* get_flattened_paths_with_types(cJSON* json) {
+    if (!json) return NULL;
+
+    cJSON* result = cJSON_CreateObject();
+    if (!result) return NULL;
+
+    if (cJSON_IsObject(json)) {
+        collect_paths_with_types_recursive(json, "", result);
+    } else if (cJSON_IsArray(json)) {
+        collect_paths_with_types_recursive(json, "", result);
+    } else {
+        // For primitive types, just return the type of the root element
+        const char* type_str = get_cjson_type_string(json);
+        cJSON* type_value = cJSON_CreateString(type_str);
+        if (type_value) {
+            cJSON_AddItemToObject(result, "root", type_value);
+        }
+    }
+
+    return result;
+}
+
+char* get_flattened_paths_with_types_string(const char* json_string) {
+    if (!json_string) return NULL;
+
+    cJSON* json = cJSON_Parse(json_string);
+    if (!json) return NULL;
+
+    cJSON* paths_with_types = get_flattened_paths_with_types(json);
+    char* result = NULL;
+
+    if (paths_with_types) {
+        result = cJSON_Print(paths_with_types);
+        cJSON_Delete(paths_with_types);
+    }
+
+    cJSON_Delete(json);
+    return result;
+}
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
