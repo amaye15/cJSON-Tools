@@ -131,7 +131,7 @@ class TestCJsonTools(unittest.TestCase):
             "person.name": "string",
             "person.age": "integer",
             "person.address.street": "string",
-            "person.address.city": "string"
+            "person.address.city": "string",
         }
 
         for path, expected_type in expected_paths.items():
@@ -150,7 +150,7 @@ class TestCJsonTools(unittest.TestCase):
             "active": "boolean",
             "data": "null",
             "tags[0]": "string",
-            "tags[1]": "string"
+            "tags[1]": "string",
         }
 
         for path, expected_type in expected_simple.items():
@@ -160,7 +160,7 @@ class TestCJsonTools(unittest.TestCase):
         # Test pretty printing
         pretty_result = get_flattened_paths_with_types(simple_json, pretty_print=True)
         self.assertIsNotNone(pretty_result)
-        self.assertIn('\n', pretty_result)  # Should have newlines for pretty printing
+        self.assertIn("\n", pretty_result)  # Should have newlines for pretty printing
 
     def test_version(self):
         """Test that version is available."""
