@@ -15,9 +15,11 @@ A high-performance C toolkit for transforming and analyzing JSON data with Pytho
 2. **Path Type Analysis**: Get flattened paths with their data types for schema discovery
 3. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
 4. **JSON Filtering**: Remove keys with empty string values or null values
-5. **Multi-threading Support**: Optimized performance for processing large JSON datasets
-6. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
-7. **Python Bindings**: Use the library directly from Python with native C performance
+5. **Regex Key Replacement**: Replace JSON keys matching regex patterns
+6. **Regex Value Replacement**: Replace JSON string values matching regex patterns
+7. **Multi-threading Support**: Optimized performance for processing large JSON datasets
+8. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
+9. **Python Bindings**: Use the library directly from Python with native C performance
 
 ## 🚀 Quick Start
 
@@ -52,6 +54,16 @@ print(cleaned)  # {"name": "John", "phone": "123-456-7890"}
 data_with_nulls = {"name": "John", "email": None, "phone": "123-456-7890", "address": None}
 filtered = cjson_tools.remove_nulls(json.dumps(data_with_nulls))
 print(filtered)  # {"name": "John", "phone": "123-456-7890"}
+
+# Replace keys matching regex patterns
+data_with_sessions = {"session.pageTimesInMs.HomePage": 1500, "session.pageTimesInMs.AboutPage": 2000, "user.name": "John"}
+replaced_keys = cjson_tools.replace_keys(json.dumps(data_with_sessions), r"^session\.pageTimesInMs\..*$", "session.pageTimesInMs.PrezzePage")
+print(replaced_keys)  # {"session.pageTimesInMs.PrezzePage": 1500, "session.pageTimesInMs.PrezzePage": 2000, "user.name": "John"}
+
+# Replace string values matching regex patterns
+data_with_old_values = {"user": {"status": "old_active", "role": "old_admin", "name": "John"}}
+replaced_values = cjson_tools.replace_values(json.dumps(data_with_old_values), r"^old_.*$", "new_value")
+print(replaced_values)  # {"user": {"status": "new_value", "role": "new_value", "name": "John"}}
 ```
 
 ### C Library
@@ -96,6 +108,14 @@ make
 - **Recursive Processing**: Works on deeply nested objects and arrays
 - **Structure Preservation**: Maintains JSON structure while filtering
 - **Pretty Printing**: Optional formatted output for filtered results
+
+### 🔄 Regex Replacement
+- **Replace Keys**: Use regex patterns to replace JSON keys matching specific patterns
+- **Replace Values**: Use regex patterns to replace JSON string values matching patterns
+- **POSIX Regex Support**: Full regex functionality on Unix-like systems (Linux, macOS)
+- **Type Safety**: Value replacement only affects string values, preserves numbers/booleans/null
+- **Recursive Processing**: Works on deeply nested objects and arrays
+- **Pattern Flexibility**: Support for complex regex patterns with capture groups and anchors
 
 ### ⚡ Performance Optimizations
 - **Multi-threading**: Parallel processing for large datasets
@@ -317,6 +337,10 @@ result = cjson_tools.flatten_json_batch(large_dataset, use_threads=False)
 #   -s, --schema               Generate JSON schema
 #   -e, --remove-empty         Remove keys with empty string values
 #   -n, --remove-nulls         Remove keys with null values
+#   -r, --replace-keys <pattern> <replacement>
+#                              Replace keys matching regex pattern
+#   -v, --replace-values <pattern> <replacement>
+#                              Replace string values matching regex pattern
 #   -t, --threads [num]        Use multi-threading (auto-detect optimal count)
 #   -p, --pretty               Pretty-print output
 #   -o, --output <file>        Write to file instead of stdout
@@ -469,6 +493,40 @@ echo '{
 }' | ./bin/json_tools -e -p -
 
 # Removes all empty strings recursively while preserving structure
+```
+
+#### Regex Key Replacement
+
+**Replace Keys with Patterns:**
+```bash
+# Replace session timing keys
+echo '{"session.pageTimesInMs.HomePage": 1500, "session.pageTimesInMs.AboutPage": 2000, "user.name": "John"}' | \
+./bin/json_tools -r '^session\.pageTimesInMs\..*$' 'session.pageTimesInMs.PrezzePage' -
+
+# Output: {"session.pageTimesInMs.PrezzePage":1500,"session.pageTimesInMs.PrezzePage":2000,"user.name":"John"}
+```
+
+#### Regex Value Replacement
+
+**Replace String Values with Patterns:**
+```bash
+# Replace old status values
+echo '{"user": {"status": "old_active", "role": "old_admin", "name": "John"}}' | \
+./bin/json_tools -v '^old_.*$' 'new_value' -
+
+# Output: {"user":{"status":"new_value","role":"new_value","name":"John"}}
+```
+
+**Complex Example with Both:**
+```bash
+# Input with both keys and values to replace
+echo '{
+  "session.timing.old_load": "old_slow",
+  "session.timing.old_render": "old_fast",
+  "user.name": "John"
+}' | ./bin/json_tools -r '^session\.timing\..*$' 'session.timing.unified' -v '^old_.*$' 'new_value' -p -
+
+# First replaces keys, then values, with pretty printing
 ```
 
 ## Performance

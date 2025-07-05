@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-07-05
+
+### 🚀 New Features
+
+#### Regex-Based JSON Transformation
+- **`replace_keys()`**: Replace JSON keys that match regex patterns with replacement strings
+- **`replace_values()`**: Replace JSON string values that match regex patterns with replacement strings
+- **POSIX Regex Support**: Full regex functionality on Unix-like systems (Linux, macOS)
+- **Windows Compatibility**: Fallback implementation for Windows systems
+- **Recursive Processing**: Both functions work recursively on nested objects and arrays
+
+#### CLI Interface Enhancements
+- **`-r, --replace-keys <pattern> <replacement>`**: Command-line option for key replacement
+- **`-v, --replace-values <pattern> <replacement>`**: Command-line option for value replacement
+- **Enhanced Help Text**: Comprehensive usage examples and documentation
+- **Pretty Printing Support**: Works with `-p` flag for formatted output
+
+#### Python Bindings
+- **`cjson_tools.replace_keys(json_string, pattern, replacement, pretty_print=False)`**
+- **`cjson_tools.replace_values(json_string, pattern, replacement, pretty_print=False)`**
+- **GIL Release**: Full GIL release during C computation for better performance
+- **Error Handling**: Proper Python exception handling for invalid JSON and regex patterns
+
+### 🔧 Technical Improvements
+
+#### C Library Implementation
+- **`replace_keys_recursive()`** and **`replace_values_recursive()`**: Efficient helper functions
+- **POSIX Regex Integration**: Uses `regex.h` for pattern matching on Unix-like systems
+- **Memory Safety**: Proper cleanup and leak-free operation with `regfree()`
+- **Type Safety**: `replace_values()` only affects string values, preserves numbers/booleans/null
+
+#### Performance Optimizations
+- **Memory Pools**: Leverages existing memory pool optimizations
+- **Cache Efficiency**: Optimized for cache-friendly data access patterns
+- **Minimal Allocations**: Efficient memory usage during regex processing
+
+### 🧪 Testing & Quality
+
+#### Comprehensive Test Suite
+- **6 new test functions**: 3 for `replace_keys` and 3 for `replace_values`
+- **Edge Case Coverage**: Empty objects, nested arrays, type safety, invalid patterns
+- **Memory Leak Testing**: Verified with Valgrind - no memory issues
+- **Cross-Platform Testing**: Ubuntu, macOS, Python 3.8-3.12
+
+#### CI/CD Verification
+- **All GitHub Actions Passing**: 6/6 workflows successful
+- **Code Formatting**: Black formatting compliance
+- **Security Scanning**: No vulnerabilities detected
+- **Performance Monitoring**: Benchmarks within expected ranges
+
+### 📚 Documentation Updates
+
+#### README Enhancements
+- **Updated Feature List**: Added regex replacement capabilities
+- **New Examples**: CLI and Python usage examples for both replacement functions
+- **Enhanced Quick Start**: Comprehensive examples in the getting started section
+- **Regex Replacement Section**: Dedicated documentation for new features
+
+#### API Documentation
+- **Function Signatures**: Clear parameter descriptions and return types
+- **Usage Examples**: Real-world examples for both CLI and Python interfaces
+- **Error Handling**: Documentation of exception handling and edge cases
+
+### 🎯 Usage Examples
+
+#### Command Line
+```bash
+# Replace keys matching pattern
+echo '{"session.pageTimesInMs.HomePage": 1500, "user.name": "John"}' | \
+./bin/json_tools -r '^session\.pageTimesInMs\..*$' 'session.pageTimesInMs.PrezzePage' -
+
+# Replace values matching pattern
+echo '{"status": "old_active", "name": "John"}' | \
+./bin/json_tools -v '^old_.*$' 'new_value' -
+```
+
+#### Python
+```python
+import cjson_tools
+
+# Replace keys
+result1 = cjson_tools.replace_keys(json_string, r'^session\..*$', 'session.page')
+
+# Replace values
+result2 = cjson_tools.replace_values(json_string, r'^old_.*$', 'new_value')
+```
+
+### 🔄 Backward Compatibility
+- **Fully Backward Compatible**: All existing functionality preserved
+- **No Breaking Changes**: Existing APIs unchanged
+- **Version Compatibility**: Works with all supported Python versions (3.8-3.12)
+
+### 🎯 Use Cases
+- **Data Migration**: Replace old keys/values with new standardized formats
+- **Configuration Updates**: Update environment-specific values and keys
+- **API Response Processing**: Standardize inconsistent field names and values
+- **ETL Pipelines**: Transform data during extraction and loading processes
+
 ## [1.8.0] - 2025-07-05
 
 ### 🚀 New Features
