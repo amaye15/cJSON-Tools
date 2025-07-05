@@ -258,7 +258,7 @@ void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size
         }
 
         if (should_remove) {
-            // Remove this child
+            // Remove this child from the linked list
             if (prev) {
                 prev->next = next;
             } else {
@@ -267,6 +267,10 @@ void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size
             if (next) {
                 next->prev = prev;
             }
+
+            // Detach the child before deletion to avoid corrupting the list
+            child->next = NULL;
+            child->prev = NULL;
             cJSON_Delete(child);
         } else {
             // Process string values for replacement

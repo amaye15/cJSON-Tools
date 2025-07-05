@@ -658,9 +658,11 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
     }
 
     // Add JSON data
-    if (!json_tools_builder_add_json(builder, json_string)) {
+    json_tools_builder_add_json(builder, json_string);
+    if (json_tools_builder_has_error(builder)) {
+        const char* error = json_tools_builder_get_error(builder);
         json_tools_builder_destroy(builder);
-        PyErr_SetString(PyExc_ValueError, "Invalid JSON string");
+        PyErr_SetString(PyExc_ValueError, error ? error : "Invalid JSON string");
         return NULL;
     }
 

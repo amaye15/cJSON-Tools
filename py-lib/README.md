@@ -54,10 +54,10 @@ make
   - `include/` - C header files
   - `tests/` - Dynamic test suite and benchmarks
 - `py-lib/` - Python bindings and related files
-  - `cjson_tools/` - Python package source
-  - `tests/` - Python unit tests
-  - `examples/` - Python usage examples
-  - `benchmarks/` - Performance testing scripts
+  - `cjson_tools/` - Python package with TRUE single-pass C implementation
+  - `tests/` - Comprehensive test suite including JsonToolsBuilder
+  - `examples/` - Complete demonstration of all features
+  - `benchmarks/` - Performance benchmarks and comparisons
 
 ## ✨ Features
 

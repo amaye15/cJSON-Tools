@@ -174,28 +174,22 @@ class JsonToolsBuilder:
     
     def _execute_operations(self) -> str:
         """
-        Execute the queued operations using optimized processing.
-
-        Currently uses fallback implementation. C single-pass optimization
-        is implemented but disabled due to memory management issues.
+        Execute the queued operations using C single-pass processing.
 
         Returns:
             The transformed JSON as a string
         """
-        # TODO: Enable C builder once memory issues are resolved
-        # try:
-        #     result = _cjson_tools._builder_execute(
-        #         self._json_data,
-        #         self._operations,
-        #         self._pretty_print
-        #     )
-        #     return result
-        # except Exception as e:
-        #     # Fallback to multi-pass processing if C builder fails
-        #     return self._execute_operations_fallback()
-
-        # Use fallback implementation for now
-        return self._execute_operations_fallback()
+        # Use the C builder for true single-pass processing
+        try:
+            result = _cjson_tools._builder_execute(
+                self._json_data,
+                self._operations,
+                self._pretty_print
+            )
+            return result
+        except Exception as e:
+            # If C implementation fails, raise the error (no fallback)
+            raise RuntimeError(f"C builder failed: {e}") from e
 
     def _execute_operations_fallback(self) -> str:
         """

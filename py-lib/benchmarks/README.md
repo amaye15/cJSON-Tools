@@ -1,6 +1,6 @@
-# JSON Alchemy Python Bindings Benchmarks
+# cJSON-Tools Performance Benchmarks
 
-This directory contains benchmarks for the JSON Alchemy Python bindings.
+This directory contains performance benchmarks for cJSON-Tools, including comparisons between the TRUE single-pass C implementation and traditional multi-pass approaches.
 
 ## Running Benchmarks
 
