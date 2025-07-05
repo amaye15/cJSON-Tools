@@ -179,8 +179,8 @@ class JsonToolsBuilder:
             )
             return result
         except Exception as e:
-            # If C implementation fails, raise the error (no fallback)
-            raise RuntimeError(f"C builder failed: {e}") from e
+            # If C implementation fails, provide detailed error
+            raise RuntimeError(f"C builder failed: {e}. Operations: {self._operations}") from e
 
     def _execute_operations_fallback(self) -> str:
         """
