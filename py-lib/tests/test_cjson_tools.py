@@ -7,6 +7,7 @@ import json
 import unittest
 
 from cjson_tools import (
+    JsonToolsBuilder,
     __version__,
     flatten_json,
     flatten_json_batch,
@@ -17,7 +18,6 @@ from cjson_tools import (
     remove_nulls,
     replace_keys,
     replace_values,
-    JsonToolsBuilder,
 )
 
 
@@ -437,19 +437,12 @@ class TestJsonToolsBuilder(unittest.TestCase):
 
     def test_builder_basic_usage(self):
         """Test basic builder usage with method chaining."""
-        test_data = {
-            "name": "John",
-            "empty": "",
-            "null_field": None,
-            "age": 30
-        }
+        test_data = {"name": "John", "empty": "", "null_field": None, "age": 30}
 
         builder = JsonToolsBuilder()
-        result = (builder
-                 .add_json(test_data)
-                 .remove_empty_strings()
-                 .remove_nulls()
-                 .build())
+        result = (
+            builder.add_json(test_data).remove_empty_strings().remove_nulls().build()
+        )
 
         result_data = json.loads(result)
         self.assertIn("name", result_data)
@@ -467,19 +460,24 @@ class TestJsonToolsBuilder(unittest.TestCase):
             "legacy.server.instance2": "old_inactive",
             "user.name": "John",
             "empty_field": "",
-            "null_field": None
+            "null_field": None,
         }
 
         builder = JsonToolsBuilder()
-        result = (builder
-                 .add_json(test_data)
-                 .remove_empty_strings()
-                 .remove_nulls()
-                 .replace_keys(r"^session\.tracking\..*\.timeMs$", "session.pageTimesInMs.UnifiedPage")
-                 .replace_keys(r"^analytics\.page\..*\.visits$", "analytics.pageViews.TotalPage")
-                 .replace_keys(r"^legacy\.server\..*$", "modern.server.instance")
-                 .replace_values(r"^old_.*$", "new_value")
-                 .build())
+        result = (
+            builder.add_json(test_data)
+            .remove_empty_strings()
+            .remove_nulls()
+            .replace_keys(
+                r"^session\.tracking\..*\.timeMs$", "session.pageTimesInMs.UnifiedPage"
+            )
+            .replace_keys(
+                r"^analytics\.page\..*\.visits$", "analytics.pageViews.TotalPage"
+            )
+            .replace_keys(r"^legacy\.server\..*$", "modern.server.instance")
+            .replace_values(r"^old_.*$", "new_value")
+            .build()
+        )
 
         result_data = json.loads(result)
 
@@ -496,21 +494,13 @@ class TestJsonToolsBuilder(unittest.TestCase):
         test_data = {
             "user": {
                 "name": "John",
-                "profile": {
-                    "age": 30,
-                    "email": "john@example.com"
-                }
+                "profile": {"age": 30, "email": "john@example.com"},
             },
-            "settings": {
-                "theme": "dark"
-            }
+            "settings": {"theme": "dark"},
         }
 
         builder = JsonToolsBuilder()
-        result = (builder
-                 .add_json(test_data)
-                 .flatten()
-                 .build())
+        result = builder.add_json(test_data).flatten().build()
 
         result_data = json.loads(result)
         self.assertIn("user.name", result_data)
@@ -523,10 +513,7 @@ class TestJsonToolsBuilder(unittest.TestCase):
         test_data = {"name": "John", "age": 30}
 
         builder = JsonToolsBuilder()
-        result = (builder
-                 .add_json(test_data)
-                 .pretty_print(True)
-                 .build())
+        result = builder.add_json(test_data).pretty_print(True).build()
 
         # Pretty printed JSON should contain newlines and indentation
         self.assertIn("\n", result)
@@ -545,9 +532,7 @@ class TestJsonToolsBuilder(unittest.TestCase):
         self.assertEqual(len(builder.get_operations()), 0)
 
         # Should be able to use again
-        result = (builder
-                 .add_json({"new": "data"})
-                 .build())
+        result = builder.add_json({"new": "data"}).build()
 
         result_data = json.loads(result)
         self.assertEqual(result_data["new"], "data")
