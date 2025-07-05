@@ -18,6 +18,10 @@ void print_usage(const char* program_name) {
     printf("  -s, --schema               Generate JSON schema\n");
     printf("  -e, --remove-empty         Remove keys with empty string values\n");
     printf("  -n, --remove-nulls         Remove keys with null values\n");
+    printf("  -r, --replace-keys <pattern> <replacement>\n");
+    printf("                             Replace keys matching regex pattern\n");
+    printf("  -v, --replace-values <pattern> <replacement>\n");
+    printf("                             Replace string values matching regex pattern\n");
     printf("  -t, --threads [num]        Use multi-threading with specified number of threads\n");
     printf("                             (default: auto-detect optimal thread count)\n");
     printf("  -p, --pretty               Pretty-print output (default: compact)\n");
@@ -30,6 +34,8 @@ void print_usage(const char* program_name) {
     printf("  %s -s input.json                  # Generate schema from file\n", program_name);
     printf("  %s -e input.json                  # Remove empty string values\n", program_name);
     printf("  %s -n input.json                  # Remove null values\n", program_name);
+    printf("  %s -r '^session\\..*' 'session.page' input.json  # Replace keys with regex\n", program_name);
+    printf("  %s -v '^old_.*' 'new_value' input.json       # Replace values with regex\n", program_name);
     printf("  %s -f -t 4 large_batch.json       # Flatten with 4 threads\n", program_name);
     printf("  %s -s -t 2 -o schema.json *.json  # Generate schema from multiple files\n", program_name);
 }
@@ -43,6 +49,12 @@ int main(int argc, char* argv[]) {
     int action_schema = 0;
     int action_remove_empty = 0;
     int action_remove_nulls = 0;
+    int action_replace_keys = 0;
+    char* replace_pattern = NULL;
+    char* replace_replacement = NULL;
+    int action_replace_values = 0;
+    char* replace_values_pattern = NULL;
+    char* replace_values_replacement = NULL;
     int use_threads = 0;
     int num_threads = 0;
     int pretty_print = 0;
@@ -65,24 +77,64 @@ int main(int argc, char* argv[]) {
                     action_schema = 0;
                     action_remove_empty = 0;
                     action_remove_nulls = 0;
+                    action_replace_keys = 0;
+                    action_replace_values = 0;
                     continue;
                 case 's':
                     action_flatten = 0;
                     action_schema = 1;
                     action_remove_empty = 0;
                     action_remove_nulls = 0;
+                    action_replace_keys = 0;
+                    action_replace_values = 0;
                     break;
                 case 'e':
                     action_flatten = 0;
                     action_schema = 0;
                     action_remove_empty = 1;
                     action_remove_nulls = 0;
+                    action_replace_keys = 0;
+                    action_replace_values = 0;
                     break;
                 case 'n':
                     action_flatten = 0;
                     action_schema = 0;
                     action_remove_empty = 0;
                     action_remove_nulls = 1;
+                    action_replace_keys = 0;
+                    action_replace_values = 0;
+                    break;
+                case 'r':
+                    action_flatten = 0;
+                    action_schema = 0;
+                    action_remove_empty = 0;
+                    action_remove_nulls = 0;
+                    action_replace_keys = 1;
+                    action_replace_values = 0;
+                    // Next two arguments should be pattern and replacement
+                    if (i + 2 < argc) {
+                        replace_pattern = argv[++i];
+                        replace_replacement = argv[++i];
+                    } else {
+                        fprintf(stderr, "Error: --replace-keys requires pattern and replacement arguments\n");
+                        return 1;
+                    }
+                    break;
+                case 'v':
+                    action_flatten = 0;
+                    action_schema = 0;
+                    action_remove_empty = 0;
+                    action_remove_nulls = 0;
+                    action_replace_keys = 0;
+                    action_replace_values = 1;
+                    // Next two arguments should be pattern and replacement
+                    if (i + 2 < argc) {
+                        replace_values_pattern = argv[++i];
+                        replace_values_replacement = argv[++i];
+                    } else {
+                        fprintf(stderr, "Error: --replace-values requires pattern and replacement arguments\n");
+                        return 1;
+                    }
                     break;
                 case 't':
                     use_threads = 1;
@@ -118,21 +170,59 @@ int main(int argc, char* argv[]) {
             action_schema = 0;
             action_remove_empty = 0;
             action_remove_nulls = 0;
+            action_replace_keys = 0;
+            action_replace_values = 0;
         } else if (strcmp(arg, "--schema") == 0) {
             action_flatten = 0;
             action_schema = 1;
             action_remove_empty = 0;
             action_remove_nulls = 0;
+            action_replace_keys = 0;
+            action_replace_values = 0;
         } else if (strcmp(arg, "--remove-empty") == 0) {
             action_flatten = 0;
             action_schema = 0;
             action_remove_empty = 1;
             action_remove_nulls = 0;
+            action_replace_keys = 0;
+            action_replace_values = 0;
         } else if (strcmp(arg, "--remove-nulls") == 0) {
             action_flatten = 0;
             action_schema = 0;
             action_remove_empty = 0;
             action_remove_nulls = 1;
+            action_replace_keys = 0;
+            action_replace_values = 0;
+        } else if (strcmp(arg, "--replace-keys") == 0) {
+            action_flatten = 0;
+            action_schema = 0;
+            action_remove_empty = 0;
+            action_remove_nulls = 0;
+            action_replace_keys = 1;
+            action_replace_values = 0;
+            // Next two arguments should be pattern and replacement
+            if (i + 2 < argc) {
+                replace_pattern = argv[++i];
+                replace_replacement = argv[++i];
+            } else {
+                fprintf(stderr, "Error: --replace-keys requires pattern and replacement arguments\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--replace-values") == 0) {
+            action_flatten = 0;
+            action_schema = 0;
+            action_remove_empty = 0;
+            action_remove_nulls = 0;
+            action_replace_keys = 0;
+            action_replace_values = 1;
+            // Next two arguments should be pattern and replacement
+            if (i + 2 < argc) {
+                replace_values_pattern = argv[++i];
+                replace_values_replacement = argv[++i];
+            } else {
+                fprintf(stderr, "Error: --replace-values requires pattern and replacement arguments\n");
+                return 1;
+            }
         } else if (strcmp(arg, "--threads") == 0) {
             use_threads = 1;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -158,25 +248,55 @@ int main(int argc, char* argv[]) {
                         action_schema = 0;
                         action_remove_empty = 0;
                         action_remove_nulls = 0;
+                        action_replace_keys = 0;
+                        action_replace_values = 0;
                         break;
                     case 's':
                         action_flatten = 0;
                         action_schema = 1;
                         action_remove_empty = 0;
                         action_remove_nulls = 0;
+                        action_replace_keys = 0;
+                        action_replace_values = 0;
                         break;
                     case 'e':
                         action_flatten = 0;
                         action_schema = 0;
                         action_remove_empty = 1;
                         action_remove_nulls = 0;
+                        action_replace_keys = 0;
+                        action_replace_values = 0;
                         break;
                     case 'n':
                         action_flatten = 0;
                         action_schema = 0;
                         action_remove_empty = 0;
                         action_remove_nulls = 1;
+                        action_replace_keys = 0;
+                        action_replace_values = 0;
                         break;
+                    case 'r':
+                        action_flatten = 0;
+                        action_schema = 0;
+                        action_remove_empty = 0;
+                        action_remove_nulls = 0;
+                        action_replace_keys = 1;
+                        action_replace_values = 0;
+                        // For combined options, we can't easily get the next arguments
+                        // So we'll require the long form for replace-keys
+                        fprintf(stderr, "Error: Use --replace-keys for key replacement (not -r in combined options)\n");
+                        return 1;
+                    case 'v':
+                        action_flatten = 0;
+                        action_schema = 0;
+                        action_remove_empty = 0;
+                        action_remove_nulls = 0;
+                        action_replace_keys = 0;
+                        action_replace_values = 1;
+                        // For combined options, we can't easily get the next arguments
+                        // So we'll require the long form for replace-values
+                        fprintf(stderr, "Error: Use --replace-values for value replacement (not -v in combined options)\n");
+                        return 1;
                     case 't':
                         use_threads = 1;
                         break;
@@ -219,7 +339,7 @@ int main(int argc, char* argv[]) {
         result = flatten_json_string(json_string, use_threads, num_threads);
     } else if (action_schema) {
         result = generate_schema_from_string(json_string, use_threads, num_threads);
-    } else if (action_remove_empty || action_remove_nulls) {
+    } else if (action_remove_empty || action_remove_nulls || action_replace_keys || action_replace_values) {
         // Parse the JSON first
         cJSON* json = cJSON_Parse(json_string);
         if (!json) {
@@ -234,6 +354,10 @@ int main(int argc, char* argv[]) {
             filtered_json = remove_empty_strings(json);
         } else if (action_remove_nulls) {
             filtered_json = remove_nulls(json);
+        } else if (action_replace_keys) {
+            filtered_json = replace_keys(json, replace_pattern, replace_replacement);
+        } else if (action_replace_values) {
+            filtered_json = replace_values(json, replace_values_pattern, replace_values_replacement);
         }
 
         cJSON_Delete(json);

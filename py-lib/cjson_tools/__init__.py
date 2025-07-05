@@ -24,6 +24,8 @@ from ._cjson_tools import (
     get_flattened_paths_with_types,
     remove_empty_strings,
     remove_nulls,
+    replace_keys,
+    replace_values,
 )
 
 __all__ = [
@@ -34,5 +36,7 @@ __all__ = [
     "get_flattened_paths_with_types",
     "remove_empty_strings",
     "remove_nulls",
+    "replace_keys",
+    "replace_values",
     "__version__",
 ]

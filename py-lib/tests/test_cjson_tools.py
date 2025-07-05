@@ -15,6 +15,8 @@ from cjson_tools import (
     get_flattened_paths_with_types,
     remove_empty_strings,
     remove_nulls,
+    replace_keys,
+    replace_values,
 )
 
 
@@ -256,6 +258,211 @@ class TestCJsonTools(unittest.TestCase):
         null_result = json.loads(remove_nulls(nested_array_json))
         self.assertNotIn("null", null_result["data"][1])
         self.assertIn("number", null_result["data"][1])
+
+    def test_replace_keys(self):
+        """Test replace_keys function"""
+        # Basic key replacement
+        test_data = {
+            "session.pageTimesInMs.HomePage": 1500,
+            "session.pageTimesInMs.AboutPage": 2000,
+            "session.pageTimesInMs.ContactPage": 1200,
+            "user.name": "John",
+            "user.email": "john@example.com"
+        }
+        test_json = json.dumps(test_data)
+
+        # Replace session.pageTimesInMs.* with session.pageTimesInMs.PrezzePage
+        result = replace_keys(
+            test_json,
+            r"^session\.pageTimesInMs\..*$",
+            "session.pageTimesInMs.PrezzePage"
+        )
+        result_data = json.loads(result)
+
+        # All session.pageTimesInMs.* keys should be replaced
+        expected_keys = {
+            "session.pageTimesInMs.PrezzePage",
+            "user.name",
+            "user.email"
+        }
+        self.assertEqual(set(result_data.keys()), expected_keys)
+
+        # Values should be preserved (though multiple keys will have same name)
+        self.assertIn("session.pageTimesInMs.PrezzePage", result_data)
+        self.assertEqual(result_data["user.name"], "John")
+        self.assertEqual(result_data["user.email"], "john@example.com")
+
+    def test_replace_keys_nested(self):
+        """Test replace_keys with nested objects"""
+        test_data = {
+            "metrics": {
+                "session.timing.load": 100,
+                "session.timing.render": 200,
+                "user.action.click": 5,
+                "user.action.scroll": 10
+            },
+            "config": {
+                "session.setting.theme": "dark",
+                "user.preference.lang": "en"
+            }
+        }
+        test_json = json.dumps(test_data)
+
+        # Replace all session.* keys with session.unified
+        result = replace_keys(
+            test_json,
+            r"^session\..*$",
+            "session.unified"
+        )
+        result_data = json.loads(result)
+
+        # Check that nested session keys were replaced
+        self.assertIn("session.unified", result_data["metrics"])
+        self.assertIn("session.unified", result_data["config"])
+
+        # User keys should remain unchanged
+        self.assertIn("user.action.click", result_data["metrics"])
+        self.assertIn("user.preference.lang", result_data["config"])
+
+    def test_replace_keys_edge_cases(self):
+        """Test edge cases for replace_keys function"""
+        # Empty object
+        empty_obj = "{}"
+        result = replace_keys(empty_obj, r".*", "replacement")
+        self.assertEqual(result, "{}")
+
+        # No matching keys
+        test_data = '{"user.name": "John", "user.email": "john@example.com"}'
+        result = replace_keys(test_data, r"^session\..*$", "session.page")
+        result_data = json.loads(result)
+        expected_data = json.loads(test_data)
+        self.assertEqual(result_data, expected_data)
+
+        # Pretty print option
+        result_pretty = replace_keys(
+            test_data,
+            r"^user\..*$",
+            "user.info",
+            pretty_print=True
+        )
+        self.assertIn("\n", result_pretty)  # Should contain newlines for pretty printing
+
+    def test_replace_values(self):
+        """Test replace_values function"""
+        # Basic value replacement
+        test_data = {
+            "user": {
+                "status": "old_active",
+                "role": "old_admin",
+                "name": "John"
+            },
+            "config": {
+                "theme": "old_dark",
+                "language": "en"
+            }
+        }
+        test_json = json.dumps(test_data)
+
+        # Replace all values starting with "old_" with "new_value"
+        result = replace_values(
+            test_json,
+            r"^old_.*$",
+            "new_value"
+        )
+        result_data = json.loads(result)
+
+        # All old_* values should be replaced
+        self.assertEqual(result_data["user"]["status"], "new_value")
+        self.assertEqual(result_data["user"]["role"], "new_value")
+        self.assertEqual(result_data["config"]["theme"], "new_value")
+
+        # Non-matching values should remain unchanged
+        self.assertEqual(result_data["user"]["name"], "John")
+        self.assertEqual(result_data["config"]["language"], "en")
+
+    def test_replace_values_nested(self):
+        """Test replace_values with nested objects and arrays"""
+        test_data = {
+            "users": [
+                {
+                    "name": "John",
+                    "status": "temp_active",
+                    "role": "temp_user"
+                },
+                {
+                    "name": "Jane",
+                    "status": "temp_inactive",
+                    "role": "admin"
+                }
+            ],
+            "settings": {
+                "mode": "temp_debug",
+                "version": "1.0"
+            }
+        }
+        test_json = json.dumps(test_data)
+
+        # Replace all values starting with "temp_" with "permanent"
+        result = replace_values(
+            test_json,
+            r"^temp_.*$",
+            "permanent"
+        )
+        result_data = json.loads(result)
+
+        # Check that nested temp_ values were replaced
+        self.assertEqual(result_data["users"][0]["status"], "permanent")
+        self.assertEqual(result_data["users"][0]["role"], "permanent")
+        self.assertEqual(result_data["users"][1]["status"], "permanent")
+        self.assertEqual(result_data["settings"]["mode"], "permanent")
+
+        # Non-matching values should remain unchanged
+        self.assertEqual(result_data["users"][0]["name"], "John")
+        self.assertEqual(result_data["users"][1]["name"], "Jane")
+        self.assertEqual(result_data["users"][1]["role"], "admin")
+        self.assertEqual(result_data["settings"]["version"], "1.0")
+
+    def test_replace_values_edge_cases(self):
+        """Test edge cases for replace_values function"""
+        # Empty object
+        empty_obj = "{}"
+        result = replace_values(empty_obj, r".*", "replacement")
+        self.assertEqual(result, "{}")
+
+        # No matching values
+        test_data = '{"name": "John", "age": 30, "active": true}'
+        result = replace_values(test_data, r"^temp_.*$", "replacement")
+        result_data = json.loads(result)
+        expected_data = json.loads(test_data)
+        self.assertEqual(result_data, expected_data)
+
+        # Non-string values should not be affected
+        test_data_mixed = {
+            "name": "temp_user",
+            "age": 30,
+            "active": True,
+            "score": 95.5,
+            "data": None
+        }
+        test_json_mixed = json.dumps(test_data_mixed)
+        result = replace_values(test_json_mixed, r"^temp_.*$", "replacement")
+        result_data = json.loads(result)
+
+        # Only string values should be replaced
+        self.assertEqual(result_data["name"], "replacement")
+        self.assertEqual(result_data["age"], 30)
+        self.assertEqual(result_data["active"], True)
+        self.assertEqual(result_data["score"], 95.5)
+        self.assertEqual(result_data["data"], None)
+
+        # Pretty print option
+        result_pretty = replace_values(
+            test_json_mixed,
+            r"^temp_.*$",
+            "replacement",
+            pretty_print=True
+        )
+        self.assertIn("\n", result_pretty)  # Should contain newlines for pretty printing
 
     def test_version(self):
         """Test that version is available."""

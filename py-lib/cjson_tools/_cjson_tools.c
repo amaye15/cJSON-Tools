@@ -502,6 +502,138 @@ static PyObject* py_remove_nulls(PyObject* self, PyObject* args, PyObject* kwarg
     return py_result;
 }
 
+/**
+ * Replace JSON keys that match a regex pattern with a replacement string
+ */
+static PyObject* py_replace_keys(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
+    const char* json_string;
+    const char* pattern;
+    const char* replacement;
+    int pretty_print = 0;
+
+    static char* kwlist[] = {"json_string", "pattern", "replacement", "pretty_print", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sss|i", kwlist,
+                                    &json_string, &pattern, &replacement, &pretty_print)) {
+        return NULL;
+    }
+
+    cJSON* json;
+    cJSON* processed_json;
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    // Parse the JSON
+    json = cJSON_Parse(json_string);
+    if (!json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON input");
+        return NULL;
+    }
+
+    // Apply the key replacement
+    processed_json = replace_keys(json, pattern, replacement);
+    cJSON_Delete(json);
+
+    if (!processed_json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Failed to replace keys (invalid regex pattern?)");
+        return NULL;
+    }
+
+    // Convert back to string
+    if (pretty_print) {
+        result = cJSON_Print(processed_json);
+    } else {
+        result = cJSON_PrintUnformatted(processed_json);
+    }
+
+    cJSON_Delete(processed_json);
+    Py_END_ALLOW_THREADS
+
+    if (result == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to format result");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(result);
+    free(result);
+
+    return py_result;
+}
+
+/**
+ * Replace JSON string values that match a regex pattern with a replacement string
+ */
+static PyObject* py_replace_values(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
+    const char* json_string;
+    const char* pattern;
+    const char* replacement;
+    int pretty_print = 0;
+
+    static char* kwlist[] = {"json_string", "pattern", "replacement", "pretty_print", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sss|i", kwlist,
+                                    &json_string, &pattern, &replacement, &pretty_print)) {
+        return NULL;
+    }
+
+    cJSON* json;
+    cJSON* processed_json;
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    // Parse the JSON
+    json = cJSON_Parse(json_string);
+    if (!json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON input");
+        return NULL;
+    }
+
+    // Apply the value replacement
+    processed_json = replace_values(json, pattern, replacement);
+    cJSON_Delete(json);
+
+    if (!processed_json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Failed to replace values (invalid regex pattern?)");
+        return NULL;
+    }
+
+    // Convert back to string
+    if (pretty_print) {
+        result = cJSON_Print(processed_json);
+    } else {
+        result = cJSON_PrintUnformatted(processed_json);
+    }
+
+    cJSON_Delete(processed_json);
+    Py_END_ALLOW_THREADS
+
+    if (result == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to format result");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(result);
+    free(result);
+
+    return py_result;
+}
+
 
 // Module method definitions with proper function signatures
 static PyMethodDef CJsonToolsMethods[] = {
@@ -519,6 +651,10 @@ static PyMethodDef CJsonToolsMethods[] = {
      "Remove keys with empty string values from a JSON string. Args: json_string, pretty_print=False"},
     {"remove_nulls", (PyCFunction)(void(*)(void))py_remove_nulls, METH_VARARGS | METH_KEYWORDS,
      "Remove keys with null values from a JSON string. Args: json_string, pretty_print=False"},
+    {"replace_keys", (PyCFunction)(void(*)(void))py_replace_keys, METH_VARARGS | METH_KEYWORDS,
+     "Replace JSON keys matching a regex pattern. Args: json_string, pattern, replacement, pretty_print=False"},
+    {"replace_values", (PyCFunction)(void(*)(void))py_replace_values, METH_VARARGS | METH_KEYWORDS,
+     "Replace JSON string values matching a regex pattern. Args: json_string, pattern, replacement, pretty_print=False"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };
 

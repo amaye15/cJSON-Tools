@@ -76,4 +76,24 @@ cJSON* remove_empty_strings(const cJSON* json) HOT;
  */
 cJSON* remove_nulls(const cJSON* json) HOT;
 
+/**
+ * Replaces JSON keys that match a regex pattern with a replacement string
+ *
+ * @param json The JSON object to process
+ * @param pattern The regex pattern to match against keys
+ * @param replacement The replacement string for matching keys
+ * @return A new JSON object with keys replaced (must be freed by caller)
+ */
+cJSON* replace_keys(const cJSON* json, const char* pattern, const char* replacement) HOT;
+
+/**
+ * Replaces JSON string values that match a regex pattern with a replacement string
+ *
+ * @param json The JSON object to process
+ * @param pattern The regex pattern to match against string values
+ * @param replacement The replacement string for matching values
+ * @return A new JSON object with values replaced (must be freed by caller)
+ */
+cJSON* replace_values(const cJSON* json, const char* pattern, const char* replacement) HOT;
+
 #endif /* JSON_UTILS_H */
