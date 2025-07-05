@@ -162,19 +162,35 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
     // Performance optimization: Update operation mask for fast checking
     builder->operation_mask |= type;
 
-    // Pre-compile regex patterns for performance
+    // SAFER: Pre-compile regex patterns with comprehensive error checking
     if ((type == OP_REPLACE_KEYS || type == OP_REPLACE_VALUES) && pattern) {
-        op->compiled_regex = malloc(sizeof(regex_t));
-        if (op->compiled_regex) {
-            if (regcomp(op->compiled_regex, pattern, REG_EXTENDED) == 0) {
-                op->regex_valid = true;
-                builder->has_regex_operations = true;
+        // Validate pattern is not empty and not too long
+        size_t pattern_len = strlen(pattern);
+        if (pattern_len == 0 || pattern_len > 1024) {
+            op->regex_valid = false;
+            op->compiled_regex = NULL;
+        } else {
+            op->compiled_regex = malloc(sizeof(regex_t));
+            if (op->compiled_regex) {
+                // Use safer regex compilation with REG_NOSUB for better performance and safety
+                int regex_result = regcomp(op->compiled_regex, pattern, REG_EXTENDED | REG_NOSUB);
+                if (regex_result == 0) {
+                    op->regex_valid = true;
+                    builder->has_regex_operations = true;
+                } else {
+                    // Clean up on regex compilation failure
+                    regfree(op->compiled_regex);
+                    free(op->compiled_regex);
+                    op->compiled_regex = NULL;
+                    op->regex_valid = false;
+                }
             } else {
-                free(op->compiled_regex);
-                op->compiled_regex = NULL;
                 op->regex_valid = false;
             }
         }
+    } else {
+        op->regex_valid = false;
+        op->compiled_regex = NULL;
     }
 
     builder->operation_count++;
@@ -402,16 +418,28 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
-        if (operations[i].type == OP_REPLACE_KEYS &&
-            operations[i].regex_valid &&
-            operations[i].compiled_regex &&
-            operations[i].replacement) {
-            // MAJOR OPTIMIZATION: Use pre-compiled regex instead of regcomp() every time
-            if (regexec(operations[i].compiled_regex, result, 0, NULL, 0) == 0) {
-                free(result);
-                result = strdup(operations[i].replacement);
-                if (!result) return NULL;  // Handle strdup failure
-                break;  // Apply first matching replacement
+        if (operations[i].type == OP_REPLACE_KEYS && operations[i].replacement) {
+            if (operations[i].regex_valid && operations[i].compiled_regex) {
+                // SAFER: Use pre-compiled regex with additional safety checks
+                int regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
+                if (regex_result == 0) {
+                    char* new_result = strdup(operations[i].replacement);
+                    if (new_result) {
+                        free(result);
+                        result = new_result;
+                        break;  // Apply first matching replacement
+                    }
+                }
+            } else if (operations[i].pattern) {
+                // FALLBACK: Simple string matching for safety
+                if (strstr(result, operations[i].pattern) != NULL) {
+                    char* new_result = strdup(operations[i].replacement);
+                    if (new_result) {
+                        free(result);
+                        result = new_result;
+                        break;  // Apply first matching replacement
+                    }
+                }
             }
         }
     }
@@ -426,16 +454,28 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
-        if (operations[i].type == OP_REPLACE_VALUES &&
-            operations[i].regex_valid &&
-            operations[i].compiled_regex &&
-            operations[i].replacement) {
-            // MAJOR OPTIMIZATION: Use pre-compiled regex instead of regcomp() every time
-            if (regexec(operations[i].compiled_regex, result, 0, NULL, 0) == 0) {
-                free(result);
-                result = strdup(operations[i].replacement);
-                if (!result) return NULL;  // Handle strdup failure
-                break;  // Apply first matching replacement
+        if (operations[i].type == OP_REPLACE_VALUES && operations[i].replacement) {
+            if (operations[i].regex_valid && operations[i].compiled_regex) {
+                // SAFER: Use pre-compiled regex with additional safety checks
+                int regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
+                if (regex_result == 0) {
+                    char* new_result = strdup(operations[i].replacement);
+                    if (new_result) {
+                        free(result);
+                        result = new_result;
+                        break;  // Apply first matching replacement
+                    }
+                }
+            } else if (operations[i].pattern) {
+                // FALLBACK: Simple string matching for safety
+                if (strstr(result, operations[i].pattern) != NULL) {
+                    char* new_result = strdup(operations[i].replacement);
+                    if (new_result) {
+                        free(result);
+                        result = new_result;
+                        break;  // Apply first matching replacement
+                    }
+                }
             }
         }
     }
