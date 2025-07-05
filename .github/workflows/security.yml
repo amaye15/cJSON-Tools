@@ -279,7 +279,7 @@ jobs:
     - name: Build normal version for Valgrind
       run: |
         make clean
-        BUILD_TIER=1 DEBUG=1 make
+        BUILD_TIER=1 DEBUG=1 make all
 
     - name: Test with Valgrind
       run: |
@@ -291,12 +291,14 @@ jobs:
 
     - name: Memory stress test
       run: |
+        # Ensure the main binary is built
+        BUILD_TIER=1 DEBUG=1 make all
         cd c-lib/tests
         # Build test data generator for current platform
         make clean && make
         # Generate larger test file
         ./generate_test_data stress_test.json 1000 4
-        
+
         # Test with Valgrind
         valgrind --tool=memcheck --leak-check=full --error-exitcode=1 \
           ../../bin/json_tools -f stress_test.json > /dev/null
