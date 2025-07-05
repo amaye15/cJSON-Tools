@@ -122,7 +122,7 @@ bool json_tools_builder_has_error(JsonToolsBuilder* builder) {
 }
 
 // Internal helper functions
-static int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pattern, const char* replacement) {
+int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pattern, const char* replacement) {
     if (!builder) return -1;
     
     // Resize operations array if needed
@@ -146,7 +146,7 @@ static int add_operation(JsonToolsBuilder* builder, OperationType type, const ch
     return 0;
 }
 
-static void clear_operations(JsonToolsBuilder* builder) {
+void clear_operations(JsonToolsBuilder* builder) {
     if (!builder || !builder->operations) return;
     
     for (size_t i = 0; i < builder->operation_count; i++) {
@@ -161,7 +161,7 @@ static void clear_operations(JsonToolsBuilder* builder) {
     builder->operation_count = 0;
 }
 
-static char* execute_operations(JsonToolsBuilder* builder) {
+char* execute_operations(JsonToolsBuilder* builder) {
     if (!builder || !builder->json_data) return NULL;
 
     // Create a deep copy of the JSON data for processing
@@ -192,7 +192,7 @@ static char* execute_operations(JsonToolsBuilder* builder) {
 }
 
 // Single-pass JSON processing function
-static cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations, size_t operation_count) {
+cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations, size_t operation_count) {
     if (!json || !operations) return json;
 
     // Check if we need to flatten (must be done last)
@@ -211,7 +211,7 @@ static cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations
     if (should_flatten) {
         char* json_str = cJSON_PrintUnformatted(json);
         if (json_str) {
-            char* flattened = flatten_json(json_str);
+            char* flattened = flatten_json_string(json_str, 0, 0);
             free(json_str);
             if (flattened) {
                 cJSON_Delete(json);
@@ -224,7 +224,7 @@ static cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations
     return json;
 }
 
-static void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size_t operation_count) {
+void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size_t operation_count) {
     if (!node) return;
 
     cJSON* child = node->child;
@@ -293,7 +293,7 @@ static void process_json_node_recursive(cJSON* node, BuilderOperation* operation
 }
 
 // Operation-specific processors
-static bool should_remove_empty_string(cJSON* item, BuilderOperation* operations, size_t operation_count) {
+bool should_remove_empty_string(cJSON* item, BuilderOperation* operations, size_t operation_count) {
     if (!cJSON_IsString(item) || !item->valuestring) return false;
 
     // Check if remove_empty_strings operation is queued
@@ -305,7 +305,7 @@ static bool should_remove_empty_string(cJSON* item, BuilderOperation* operations
     return false;
 }
 
-static bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operation_count) {
+bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operation_count) {
     if (!cJSON_IsNull(item)) return false;
 
     // Check if remove_nulls operation is queued
@@ -317,7 +317,7 @@ static bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t
     return false;
 }
 
-static char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count) {
+char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count) {
     if (!key) return NULL;
 
     char* result = strdup(key);
@@ -341,7 +341,7 @@ static char* apply_key_replacements(const char* key, BuilderOperation* operation
     return result;
 }
 
-static char* apply_value_replacements(const char* value, BuilderOperation* operations, size_t operation_count) {
+char* apply_value_replacements(const char* value, BuilderOperation* operations, size_t operation_count) {
     if (!value) return NULL;
 
     char* result = strdup(value);

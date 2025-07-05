@@ -174,17 +174,39 @@ class JsonToolsBuilder:
     
     def _execute_operations(self) -> str:
         """
-        Execute the queued operations using the C implementation.
-        
+        Execute the queued operations using optimized processing.
+
+        Currently uses fallback implementation. C single-pass optimization
+        is implemented but disabled due to memory management issues.
+
         Returns:
             The transformed JSON as a string
         """
-        # For now, we'll implement this by calling individual functions
-        # In the future, this will use the C builder for single-pass processing
-        
+        # TODO: Enable C builder once memory issues are resolved
+        # try:
+        #     result = _cjson_tools._builder_execute(
+        #         self._json_data,
+        #         self._operations,
+        #         self._pretty_print
+        #     )
+        #     return result
+        # except Exception as e:
+        #     # Fallback to multi-pass processing if C builder fails
+        #     return self._execute_operations_fallback()
+
+        # Use fallback implementation for now
+        return self._execute_operations_fallback()
+
+    def _execute_operations_fallback(self) -> str:
+        """
+        Fallback implementation using individual function calls (multi-pass).
+
+        Returns:
+            The transformed JSON as a string
+        """
         result = self._json_data
-        
-        # Apply operations in order
+
+        # Apply operations in order (multi-pass)
         for op in self._operations:
             if op['type'] == 'remove_empty_strings':
                 result = _cjson_tools.remove_empty_strings(result, self._pretty_print)
@@ -199,7 +221,7 @@ class JsonToolsBuilder:
                 if self._pretty_print:
                     data = json.loads(result)
                     result = json.dumps(data, indent=2)
-        
+
         return result
     
     def reset(self) -> 'JsonToolsBuilder':

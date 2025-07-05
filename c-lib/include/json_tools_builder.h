@@ -66,20 +66,20 @@ char* json_tools_builder_build(JsonToolsBuilder* builder);
 const char* json_tools_builder_get_error(JsonToolsBuilder* builder);
 bool json_tools_builder_has_error(JsonToolsBuilder* builder);
 
-// Internal helper functions
-static int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pattern, const char* replacement);
-static void clear_operations(JsonToolsBuilder* builder);
-static char* execute_operations(JsonToolsBuilder* builder);
+// Internal helper functions (non-static for Python bindings)
+int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pattern, const char* replacement);
+void clear_operations(JsonToolsBuilder* builder);
+char* execute_operations(JsonToolsBuilder* builder);
 
 // Single-pass JSON processing function
-static cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations, size_t operation_count);
-static void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size_t operation_count);
+cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations, size_t operation_count);
+void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size_t operation_count);
 
 // Operation-specific processors
-static bool should_remove_empty_string(cJSON* item, BuilderOperation* operations, size_t operation_count);
-static bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operation_count);
-static char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count);
-static char* apply_value_replacements(const char* value, BuilderOperation* operations, size_t operation_count);
+bool should_remove_empty_string(cJSON* item, BuilderOperation* operations, size_t operation_count);
+bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operation_count);
+char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count);
+char* apply_value_replacements(const char* value, BuilderOperation* operations, size_t operation_count);
 
 #ifdef __cplusplus
 }

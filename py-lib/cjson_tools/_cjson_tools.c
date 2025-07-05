@@ -635,6 +635,114 @@ static PyObject* py_replace_values(PyObject* self, PyObject* args, PyObject* kwa
     return py_result;
 }
 
+// JsonToolsBuilder Python bindings
+static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
+    const char* json_string;
+    PyObject* operations_list;
+    int pretty_print = 0;
+
+    if (!PyArg_ParseTuple(args, "sO|i", &json_string, &operations_list, &pretty_print)) {
+        return NULL;
+    }
+
+    if (!PyList_Check(operations_list)) {
+        PyErr_SetString(PyExc_TypeError, "operations must be a list");
+        return NULL;
+    }
+
+    // Create builder
+    JsonToolsBuilder* builder = json_tools_builder_create();
+    if (!builder) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to create JsonToolsBuilder");
+        return NULL;
+    }
+
+    // Add JSON data
+    if (!json_tools_builder_add_json(builder, json_string)) {
+        json_tools_builder_destroy(builder);
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON string");
+        return NULL;
+    }
+
+    // Add operations
+    Py_ssize_t num_operations = PyList_Size(operations_list);
+    for (Py_ssize_t i = 0; i < num_operations; i++) {
+        PyObject* op = PyList_GetItem(operations_list, i);
+        if (!PyDict_Check(op)) {
+            json_tools_builder_destroy(builder);
+            PyErr_SetString(PyExc_TypeError, "Each operation must be a dictionary");
+            return NULL;
+        }
+
+        PyObject* type_obj = PyDict_GetItemString(op, "type");
+        if (!type_obj || !PyUnicode_Check(type_obj)) {
+            json_tools_builder_destroy(builder);
+            PyErr_SetString(PyExc_ValueError, "Operation must have a 'type' string field");
+            return NULL;
+        }
+
+        const char* op_type = PyUnicode_AsUTF8(type_obj);
+
+        if (strcmp(op_type, "remove_empty_strings") == 0) {
+            json_tools_builder_remove_empty_strings(builder);
+        } else if (strcmp(op_type, "remove_nulls") == 0) {
+            json_tools_builder_remove_nulls(builder);
+        } else if (strcmp(op_type, "replace_keys") == 0) {
+            PyObject* pattern_obj = PyDict_GetItemString(op, "pattern");
+            PyObject* replacement_obj = PyDict_GetItemString(op, "replacement");
+
+            if (!pattern_obj || !PyUnicode_Check(pattern_obj) ||
+                !replacement_obj || !PyUnicode_Check(replacement_obj)) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "replace_keys operation requires 'pattern' and 'replacement' strings");
+                return NULL;
+            }
+
+            const char* pattern = PyUnicode_AsUTF8(pattern_obj);
+            const char* replacement = PyUnicode_AsUTF8(replacement_obj);
+            json_tools_builder_replace_keys(builder, pattern, replacement);
+        } else if (strcmp(op_type, "replace_values") == 0) {
+            PyObject* pattern_obj = PyDict_GetItemString(op, "pattern");
+            PyObject* replacement_obj = PyDict_GetItemString(op, "replacement");
+
+            if (!pattern_obj || !PyUnicode_Check(pattern_obj) ||
+                !replacement_obj || !PyUnicode_Check(replacement_obj)) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "replace_values operation requires 'pattern' and 'replacement' strings");
+                return NULL;
+            }
+
+            const char* pattern = PyUnicode_AsUTF8(pattern_obj);
+            const char* replacement = PyUnicode_AsUTF8(replacement_obj);
+            json_tools_builder_replace_values(builder, pattern, replacement);
+        } else if (strcmp(op_type, "flatten") == 0) {
+            json_tools_builder_flatten(builder);
+        } else {
+            json_tools_builder_destroy(builder);
+            PyErr_Format(PyExc_ValueError, "Unknown operation type: %s", op_type);
+            return NULL;
+        }
+    }
+
+    // Set pretty print option
+    json_tools_builder_pretty_print(builder, pretty_print);
+
+    // Execute and get result
+    char* result = json_tools_builder_build(builder);
+    if (!result) {
+        const char* error = json_tools_builder_get_error(builder);
+        json_tools_builder_destroy(builder);
+        PyErr_SetString(PyExc_RuntimeError, error ? error : "Failed to execute operations");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(result);
+    free(result);
+    json_tools_builder_destroy(builder);
+
+    return py_result;
+}
+
 
 // Module method definitions with proper function signatures
 static PyMethodDef CJsonToolsMethods[] = {
@@ -656,6 +764,8 @@ static PyMethodDef CJsonToolsMethods[] = {
      "Replace JSON keys matching a regex pattern. Args: json_string, pattern, replacement, pretty_print=False"},
     {"replace_values", (PyCFunction)(void(*)(void))py_replace_values, METH_VARARGS | METH_KEYWORDS,
      "Replace JSON string values matching a regex pattern. Args: json_string, pattern, replacement, pretty_print=False"},
+    {"_builder_execute", (PyCFunction)(void(*)(void))py_json_tools_builder_execute, METH_VARARGS,
+     "Execute JsonToolsBuilder operations in single pass. Args: json_string, operations_list, pretty_print=False"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };
 

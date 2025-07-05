@@ -112,6 +112,7 @@ cjson_tools_module = Extension(
         os.path.join(c_lib_src, "cJSON.c"),
         os.path.join(c_lib_src, "json_flattener.c"),
         os.path.join(c_lib_src, "json_schema_generator.c"),
+        os.path.join(c_lib_src, "json_tools_builder.c"),
         os.path.join(c_lib_src, "json_utils.c"),
         os.path.join(c_lib_src, "thread_pool.c"),
         os.path.join(c_lib_src, "memory_pool.c"),
