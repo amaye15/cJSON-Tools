@@ -166,18 +166,16 @@ class TestCJsonTools(unittest.TestCase):
 
     def test_remove_empty_strings(self):
         """Test removing keys with empty string values."""
-        test_json = json.dumps({
-            "name": "test",
-            "empty": "",
-            "value": 123,
-            "null_field": None,
-            "nested": {
-                "empty_nested": "",
-                "data": "valid",
-                "null_nested": None
-            },
-            "array": ["", "valid", "", None]
-        })
+        test_json = json.dumps(
+            {
+                "name": "test",
+                "empty": "",
+                "value": 123,
+                "null_field": None,
+                "nested": {"empty_nested": "", "data": "valid", "null_nested": None},
+                "array": ["", "valid", "", None],
+            }
+        )
 
         # Test basic functionality
         result = remove_empty_strings(test_json)
@@ -195,22 +193,20 @@ class TestCJsonTools(unittest.TestCase):
         # Test pretty printing
         pretty_result = remove_empty_strings(test_json, pretty_print=True)
         self.assertIn("\n", pretty_result)  # Should have newlines
-        self.assertIn("\"name\":", pretty_result)
+        self.assertIn('"name":', pretty_result)
 
     def test_remove_nulls(self):
         """Test removing keys with null values."""
-        test_json = json.dumps({
-            "name": "test",
-            "empty": "",
-            "value": 123,
-            "null_field": None,
-            "nested": {
-                "empty_nested": "",
-                "data": "valid",
-                "null_nested": None
-            },
-            "array": ["", "valid", "", None]
-        })
+        test_json = json.dumps(
+            {
+                "name": "test",
+                "empty": "",
+                "value": 123,
+                "null_field": None,
+                "nested": {"empty_nested": "", "data": "valid", "null_nested": None},
+                "array": ["", "valid", "", None],
+            }
+        )
 
         # Test basic functionality
         result = remove_nulls(test_json)
@@ -229,7 +225,7 @@ class TestCJsonTools(unittest.TestCase):
         # Test pretty printing
         pretty_result = remove_nulls(test_json, pretty_print=True)
         self.assertIn("\n", pretty_result)  # Should have newlines
-        self.assertIn("\"name\":", pretty_result)
+        self.assertIn('"name":', pretty_result)
 
     def test_remove_functions_edge_cases(self):
         """Test edge cases for remove functions."""
@@ -249,12 +245,9 @@ class TestCJsonTools(unittest.TestCase):
         self.assertEqual(json.loads(result), {})
 
         # Test nested arrays
-        nested_array_json = json.dumps({
-            "data": [
-                {"empty": "", "valid": "test"},
-                {"null": None, "number": 42}
-            ]
-        })
+        nested_array_json = json.dumps(
+            {"data": [{"empty": "", "valid": "test"}, {"null": None, "number": 42}]}
+        )
 
         empty_result = json.loads(remove_empty_strings(nested_array_json))
         self.assertNotIn("empty", empty_result["data"][0])
