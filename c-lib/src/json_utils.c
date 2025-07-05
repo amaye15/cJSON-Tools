@@ -251,3 +251,91 @@ int get_optimal_threads(int requested_threads) {
         return (num_cores / 2) + 2;
     }
 }
+
+/**
+ * Helper function to recursively process JSON objects/arrays for filtering
+ */
+static cJSON* filter_json_recursive(const cJSON* json, int remove_empty_strings, int remove_nulls) {
+    if (UNLIKELY(json == NULL)) return NULL;
+
+    if (cJSON_IsObject(json)) {
+        cJSON* new_obj = cJSON_CreateObject();
+        if (UNLIKELY(!new_obj)) return NULL;
+
+        const cJSON* child = json->child;
+        while (child) {
+            int should_skip = 0;
+
+            // Check if we should skip this key-value pair
+            if (remove_empty_strings && cJSON_IsString(child) &&
+                child->valuestring && strlen_simd(child->valuestring) == 0) {
+                should_skip = 1;
+            }
+
+            if (remove_nulls && cJSON_IsNull(child)) {
+                should_skip = 1;
+            }
+
+            if (!should_skip) {
+                // Recursively process the value
+                cJSON* filtered_value = filter_json_recursive(child, remove_empty_strings, remove_nulls);
+                if (filtered_value) {
+                    cJSON_AddItemToObject(new_obj, child->string, filtered_value);
+                }
+            }
+
+            child = child->next;
+        }
+
+        return new_obj;
+    } else if (cJSON_IsArray(json)) {
+        cJSON* new_array = cJSON_CreateArray();
+        if (UNLIKELY(!new_array)) return NULL;
+
+        const cJSON* child = json->child;
+        while (child) {
+            int should_skip = 0;
+
+            // Check if we should skip this array element
+            if (remove_empty_strings && cJSON_IsString(child) &&
+                child->valuestring && strlen_simd(child->valuestring) == 0) {
+                should_skip = 1;
+            }
+
+            if (remove_nulls && cJSON_IsNull(child)) {
+                should_skip = 1;
+            }
+
+            if (!should_skip) {
+                // Recursively process the array element
+                cJSON* filtered_value = filter_json_recursive(child, remove_empty_strings, remove_nulls);
+                if (filtered_value) {
+                    cJSON_AddItemToArray(new_array, filtered_value);
+                }
+            }
+
+            child = child->next;
+        }
+
+        return new_array;
+    } else {
+        // For primitive values, create a copy
+        return cJSON_Duplicate(json, 1);
+    }
+}
+
+/**
+ * Removes all keys that have empty string values from a JSON object
+ */
+cJSON* remove_empty_strings(const cJSON* json) {
+    if (UNLIKELY(json == NULL)) return NULL;
+    return filter_json_recursive(json, 1, 0);
+}
+
+/**
+ * Removes all keys that have null values from a JSON object
+ */
+cJSON* remove_nulls(const cJSON* json) {
+    if (UNLIKELY(json == NULL)) return NULL;
+    return filter_json_recursive(json, 0, 1);
+}

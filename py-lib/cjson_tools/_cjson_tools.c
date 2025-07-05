@@ -374,6 +374,134 @@ static PyObject* py_get_flattened_paths_with_types(PyObject* self, PyObject* arg
     return py_result;
 }
 
+/**
+ * Remove keys with empty string values from a JSON string
+ */
+static PyObject* py_remove_empty_strings(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
+    const char* json_string;
+    int pretty_print = 0;
+
+    static char* kwlist[] = {"json_string", "pretty_print", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|i", kwlist,
+                                    &json_string, &pretty_print)) {
+        return NULL;
+    }
+
+    cJSON* json;
+    cJSON* filtered_json;
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    // Parse the JSON
+    json = cJSON_Parse(json_string);
+    if (!json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON input");
+        return NULL;
+    }
+
+    // Apply the filter
+    filtered_json = remove_empty_strings(json);
+    cJSON_Delete(json);
+
+    if (!filtered_json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Failed to remove empty strings");
+        return NULL;
+    }
+
+    // Convert back to string
+    if (pretty_print) {
+        result = cJSON_Print(filtered_json);
+    } else {
+        result = cJSON_PrintUnformatted(filtered_json);
+    }
+
+    cJSON_Delete(filtered_json);
+    Py_END_ALLOW_THREADS
+
+    if (result == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to format result");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(result);
+    free(result);
+
+    return py_result;
+}
+
+/**
+ * Remove keys with null values from a JSON string
+ */
+static PyObject* py_remove_nulls(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Suppress unused parameter warning
+    const char* json_string;
+    int pretty_print = 0;
+
+    static char* kwlist[] = {"json_string", "pretty_print", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|i", kwlist,
+                                    &json_string, &pretty_print)) {
+        return NULL;
+    }
+
+    cJSON* json;
+    cJSON* filtered_json;
+    char* result;
+
+    // Release GIL during C computation for better parallelism
+    Py_BEGIN_ALLOW_THREADS
+
+    // Initialize memory pools for optimal performance
+    init_global_pools();
+
+    // Parse the JSON
+    json = cJSON_Parse(json_string);
+    if (!json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON input");
+        return NULL;
+    }
+
+    // Apply the filter
+    filtered_json = remove_nulls(json);
+    cJSON_Delete(json);
+
+    if (!filtered_json) {
+        Py_BLOCK_THREADS
+        PyErr_SetString(PyExc_ValueError, "Failed to remove nulls");
+        return NULL;
+    }
+
+    // Convert back to string
+    if (pretty_print) {
+        result = cJSON_Print(filtered_json);
+    } else {
+        result = cJSON_PrintUnformatted(filtered_json);
+    }
+
+    cJSON_Delete(filtered_json);
+    Py_END_ALLOW_THREADS
+
+    if (result == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to format result");
+        return NULL;
+    }
+
+    PyObject* py_result = PyUnicode_FromString(result);
+    free(result);
+
+    return py_result;
+}
+
 
 // Module method definitions with proper function signatures
 static PyMethodDef CJsonToolsMethods[] = {
@@ -387,6 +515,10 @@ static PyMethodDef CJsonToolsMethods[] = {
      "Generate a JSON schema from a batch of JSON objects."},
     {"get_flattened_paths_with_types", (PyCFunction)(void(*)(void))py_get_flattened_paths_with_types, METH_VARARGS | METH_KEYWORDS,
      "Get flattened paths with their data types from a JSON string. Args: json_string, pretty_print=False"},
+    {"remove_empty_strings", (PyCFunction)(void(*)(void))py_remove_empty_strings, METH_VARARGS | METH_KEYWORDS,
+     "Remove keys with empty string values from a JSON string. Args: json_string, pretty_print=False"},
+    {"remove_nulls", (PyCFunction)(void(*)(void))py_remove_nulls, METH_VARARGS | METH_KEYWORDS,
+     "Remove keys with null values from a JSON string. Args: json_string, pretty_print=False"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };
 

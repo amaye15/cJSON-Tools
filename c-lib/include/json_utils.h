@@ -60,4 +60,20 @@ int get_num_cores(void) CONST;
  */
 int get_optimal_threads(int requested_threads) PURE;
 
+/**
+ * Removes all keys that have empty string values from a JSON object
+ *
+ * @param json The JSON object to process
+ * @return A new JSON object with empty string values removed (must be freed by caller)
+ */
+cJSON* remove_empty_strings(const cJSON* json) HOT;
+
+/**
+ * Removes all keys that have null values from a JSON object
+ *
+ * @param json The JSON object to process
+ * @return A new JSON object with null values removed (must be freed by caller)
+ */
+cJSON* remove_nulls(const cJSON* json) HOT;
+
 #endif /* JSON_UTILS_H */
