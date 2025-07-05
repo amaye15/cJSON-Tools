@@ -17,6 +17,7 @@ from cjson_tools import (
     remove_nulls,
     replace_keys,
     replace_values,
+    JsonToolsBuilder,
 )
 
 
@@ -429,6 +430,152 @@ class TestCJsonTools(unittest.TestCase):
         """Test that version is available."""
         self.assertIsNotNone(__version__)
         self.assertTrue(len(__version__) > 0)
+
+
+class TestJsonToolsBuilder(unittest.TestCase):
+    """Test cases for JsonToolsBuilder class."""
+
+    def test_builder_basic_usage(self):
+        """Test basic builder usage with method chaining."""
+        test_data = {
+            "name": "John",
+            "empty": "",
+            "null_field": None,
+            "age": 30
+        }
+
+        builder = JsonToolsBuilder()
+        result = (builder
+                 .add_json(test_data)
+                 .remove_empty_strings()
+                 .remove_nulls()
+                 .build())
+
+        result_data = json.loads(result)
+        self.assertIn("name", result_data)
+        self.assertIn("age", result_data)
+        self.assertNotIn("empty", result_data)
+        self.assertNotIn("null_field", result_data)
+
+    def test_builder_complex_chaining(self):
+        """Test complex chaining with multiple operations."""
+        test_data = {
+            "session.tracking.page1.timeMs": 1500,
+            "session.tracking.page2.timeMs": 2000,
+            "analytics.page.home.visits": 100,
+            "legacy.server.instance1": "old_active",
+            "legacy.server.instance2": "old_inactive",
+            "user.name": "John",
+            "empty_field": "",
+            "null_field": None
+        }
+
+        builder = JsonToolsBuilder()
+        result = (builder
+                 .add_json(test_data)
+                 .remove_empty_strings()
+                 .remove_nulls()
+                 .replace_keys(r"^session\.tracking\..*\.timeMs$", "session.pageTimesInMs.UnifiedPage")
+                 .replace_keys(r"^analytics\.page\..*\.visits$", "analytics.pageViews.TotalPage")
+                 .replace_keys(r"^legacy\.server\..*$", "modern.server.instance")
+                 .replace_values(r"^old_.*$", "new_value")
+                 .build())
+
+        result_data = json.loads(result)
+
+        # Check that empty and null fields are removed
+        self.assertNotIn("empty_field", result_data)
+        self.assertNotIn("null_field", result_data)
+
+        # Check that user.name is preserved
+        self.assertIn("user.name", result_data)
+        self.assertEqual(result_data["user.name"], "John")
+
+    def test_builder_with_flatten(self):
+        """Test builder with flattening operation."""
+        test_data = {
+            "user": {
+                "name": "John",
+                "profile": {
+                    "age": 30,
+                    "email": "john@example.com"
+                }
+            },
+            "settings": {
+                "theme": "dark"
+            }
+        }
+
+        builder = JsonToolsBuilder()
+        result = (builder
+                 .add_json(test_data)
+                 .flatten()
+                 .build())
+
+        result_data = json.loads(result)
+        self.assertIn("user.name", result_data)
+        self.assertIn("user.profile.age", result_data)
+        self.assertIn("user.profile.email", result_data)
+        self.assertIn("settings.theme", result_data)
+
+    def test_builder_pretty_print(self):
+        """Test builder with pretty printing."""
+        test_data = {"name": "John", "age": 30}
+
+        builder = JsonToolsBuilder()
+        result = (builder
+                 .add_json(test_data)
+                 .pretty_print(True)
+                 .build())
+
+        # Pretty printed JSON should contain newlines and indentation
+        self.assertIn("\n", result)
+        self.assertIn("  ", result)
+
+    def test_builder_reset(self):
+        """Test builder reset functionality."""
+        builder = JsonToolsBuilder()
+        builder.add_json({"test": "data"}).remove_empty_strings()
+
+        # Check that operations are queued
+        self.assertEqual(len(builder.get_operations()), 1)
+
+        # Reset and check
+        builder.reset()
+        self.assertEqual(len(builder.get_operations()), 0)
+
+        # Should be able to use again
+        result = (builder
+                 .add_json({"new": "data"})
+                 .build())
+
+        result_data = json.loads(result)
+        self.assertEqual(result_data["new"], "data")
+
+    def test_builder_error_handling(self):
+        """Test builder error handling."""
+        builder = JsonToolsBuilder()
+
+        # Should raise error when building without data
+        with self.assertRaises(ValueError):
+            builder.build()
+
+        # Should raise error with invalid JSON
+        with self.assertRaises(ValueError):
+            builder.add_json("invalid json")
+
+    def test_builder_repr(self):
+        """Test builder string representation."""
+        builder = JsonToolsBuilder()
+        repr_str = repr(builder)
+        self.assertIn("JsonToolsBuilder", repr_str)
+        self.assertIn("operations=0", repr_str)
+        self.assertIn("has_data=False", repr_str)
+
+        builder.add_json({"test": "data"}).remove_empty_strings()
+        repr_str = repr(builder)
+        self.assertIn("operations=1", repr_str)
+        self.assertIn("has_data=True", repr_str)
 
 
 if __name__ == "__main__":

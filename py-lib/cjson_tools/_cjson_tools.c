@@ -3,6 +3,7 @@
 #include "../../c-lib/include/cjson/cJSON.h"
 #include "../../c-lib/include/json_flattener.h"
 #include "../../c-lib/include/json_schema_generator.h"
+#include "../../c-lib/include/json_tools_builder.h"
 #include "../../c-lib/include/json_utils.h"
 #include "../../c-lib/include/simd_utils.h"
 #include "../../c-lib/include/thread_pool.h"

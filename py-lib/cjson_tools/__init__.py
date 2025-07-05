@@ -28,6 +28,8 @@ from ._cjson_tools import (
     replace_values,
 )
 
+from .builder import JsonToolsBuilder
+
 __all__ = [
     "flatten_json",
     "flatten_json_batch",
@@ -38,5 +40,6 @@ __all__ = [
     "remove_nulls",
     "replace_keys",
     "replace_values",
+    "JsonToolsBuilder",
     "__version__",
 ]

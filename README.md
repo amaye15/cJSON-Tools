@@ -64,6 +64,28 @@ print(replaced_keys)  # {"session.pageTimesInMs.PrezzePage": 1500, "session.page
 data_with_old_values = {"user": {"status": "old_active", "role": "old_admin", "name": "John"}}
 replaced_values = cjson_tools.replace_values(json.dumps(data_with_old_values), r"^old_.*$", "new_value")
 print(replaced_values)  # {"user": {"status": "new_value", "role": "new_value", "name": "John"}}
+
+# 🚀 NEW: Builder Pattern for Chained Operations
+from cjson_tools import JsonToolsBuilder
+
+# Chain multiple operations efficiently
+result = (JsonToolsBuilder()
+    .add_json(data_with_sessions)
+    .remove_empty_strings()
+    .remove_nulls()
+    .replace_keys(r"^session\.tracking\..*\.timeMs$", "session.pageTimesInMs.UnifiedPage")
+    .replace_keys(r"^analytics\.page\..*\.visits$", "analytics.pageViews.TotalPage")
+    .replace_keys(r"^legacy\.server\..*$", "modern.server.instance")
+    .replace_keys(r"^old_", "new_")
+    .replace_values(r"^old_.*$", "new_value")
+    .replace_values(r"^legacy_.*$", "modern_value")
+    .replace_values(r"usr_\d+", "user_new_12345")
+    .replace_values(r".*@oldcompany\.com", "john@newcompany.com")
+    .flatten()
+    .pretty_print(True)
+    .build())
+
+print(result)  # Fully transformed JSON with all operations applied efficiently
 ```
 
 ### C Library
@@ -116,6 +138,14 @@ make
 - **Type Safety**: Value replacement only affects string values, preserves numbers/booleans/null
 - **Recursive Processing**: Works on deeply nested objects and arrays
 - **Pattern Flexibility**: Support for complex regex patterns with capture groups and anchors
+
+### 🔗 JsonToolsBuilder - Fluent Interface
+- **Method Chaining**: Chain multiple operations in a single, readable expression
+- **Efficient Processing**: All operations applied in optimal order for best performance
+- **Flexible Operations**: Combine filtering, regex replacement, and flattening seamlessly
+- **Pretty Printing**: Built-in support for formatted output
+- **Error Handling**: Comprehensive validation and error reporting
+- **Future Optimization**: Designed for single-pass processing optimization
 
 ### ⚡ Performance Optimizations
 - **Multi-threading**: Parallel processing for large datasets
@@ -528,6 +558,137 @@ echo '{
 
 # First replaces keys, then values, with pretty printing
 ```
+
+## JsonToolsBuilder - Fluent Interface
+
+The `JsonToolsBuilder` class provides a powerful fluent interface for chaining multiple JSON transformation operations. This approach offers better readability and will be optimized for single-pass processing in future versions.
+
+### Basic Usage
+
+```python
+from cjson_tools import JsonToolsBuilder
+
+# Simple chaining
+result = (JsonToolsBuilder()
+    .add_json({"name": "John", "empty": "", "null_field": None})
+    .remove_empty_strings()
+    .remove_nulls()
+    .build())
+
+print(result)  # {"name": "John"}
+```
+
+### Complex Transformation Pipeline
+
+```python
+# Real-world data transformation scenario
+data = {
+    "session.tracking.homepage.timeMs": 1500,
+    "session.tracking.aboutpage.timeMs": 2000,
+    "analytics.page.home.visits": 100,
+    "analytics.page.about.visits": 200,
+    "legacy.server.instance1": "old_active",
+    "legacy.server.instance2": "old_inactive",
+    "old_user_id": "usr_12345",
+    "deprecated_phone": "deprecated_555-1234",
+    "user_email": "john@oldcompany.com",
+    "empty_field": "",
+    "null_field": None,
+    "user_profile": {
+        "old_status": "old_premium",
+        "legacy_tier": "legacy_gold",
+        "empty_bio": "",
+        "null_avatar": None
+    }
+}
+
+# Apply comprehensive transformation
+result = (JsonToolsBuilder()
+    .add_json(data)
+
+    # Clean up empty and null values
+    .remove_empty_strings()
+    .remove_nulls()
+
+    # Standardize key naming patterns
+    .replace_keys(r"^session\.tracking\..*\.timeMs$", "session.pageTimesInMs.UnifiedPage")
+    .replace_keys(r"^analytics\.page\..*\.visits$", "analytics.pageViews.TotalPage")
+    .replace_keys(r"^legacy\.server\..*$", "modern.server.instance")
+    .replace_keys(r"^old_", "new_")
+    .replace_keys(r"^deprecated", "updated")
+
+    # Standardize value patterns
+    .replace_values(r"^old_.*$", "new_value")
+    .replace_values(r"^legacy_.*$", "modern_value")
+    .replace_values(r"^deprecated_.*$", "updated_value")
+    .replace_values(r"usr_\d+", "user_new_12345")
+    .replace_values(r".*@oldcompany\.com", "john@newcompany.com")
+
+    # Optional: flatten the structure
+    .flatten()
+
+    # Format output
+    .pretty_print(True)
+
+    # Execute all operations
+    .build())
+
+print(result)
+```
+
+### Builder Methods
+
+#### Data Input
+- **`.add_json(data)`** - Add JSON data (string, dict, or list)
+
+#### Filtering Operations
+- **`.remove_empty_strings()`** - Remove keys with empty string values
+- **`.remove_nulls()`** - Remove keys with null values
+
+#### Regex Replacement
+- **`.replace_keys(pattern, replacement)`** - Replace keys matching regex pattern
+- **`.replace_values(pattern, replacement)`** - Replace string values matching regex pattern
+
+#### Transformation
+- **`.flatten()`** - Flatten nested JSON structure
+
+#### Output Configuration
+- **`.pretty_print(enable=True)`** - Enable/disable pretty printing
+
+#### Execution
+- **`.build()`** - Execute all queued operations and return result
+
+#### Utility
+- **`.reset()`** - Reset builder to initial state
+- **`.get_operations()`** - Get list of queued operations
+
+### Error Handling
+
+```python
+from cjson_tools import JsonToolsBuilder
+
+try:
+    result = (JsonToolsBuilder()
+        .add_json('{"invalid": json}')  # Invalid JSON
+        .build())
+except ValueError as e:
+    print(f"Error: {e}")
+
+# Check for data before building
+builder = JsonToolsBuilder()
+try:
+    result = builder.build()  # No data provided
+except ValueError as e:
+    print(f"Error: {e}")  # "No JSON data provided. Call add_json() first."
+```
+
+### Performance Benefits
+
+- **Readable Code**: Fluent interface makes complex transformations easy to understand
+- **Efficient Processing**: Operations are applied in optimal order
+- **Future Optimization**: Architecture designed for single-pass processing
+- **Memory Efficient**: Intermediate results are managed automatically
+- **Type Safety**: All operations preserve data types appropriately
 
 ## Performance
 
