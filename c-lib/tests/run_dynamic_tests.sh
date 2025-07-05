@@ -16,6 +16,35 @@ NC='\033[0m' # No Color
 TEMP_DIR="temp_test_data"
 TEST_SIZES=(10 100 1000 10000)  # Small to medium test sizes
 
+# Parse command line arguments
+BENCHMARK_MODE=false
+CUSTOM_SIZES=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --sizes)
+            CUSTOM_SIZES="$2"
+            shift 2
+            ;;
+        --benchmark)
+            BENCHMARK_MODE=true
+            shift
+            ;;
+        --quick)
+            TEST_SIZES=(100 1000)
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Override test sizes if custom sizes provided
+if [ -n "$CUSTOM_SIZES" ]; then
+    IFS=',' read -ra TEST_SIZES <<< "$CUSTOM_SIZES"
+fi
+
 # Function to print colored output
 print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -112,7 +141,21 @@ main() {
     print_status "Building cJSON-Tools..."
     cd ../..
     make clean
-    make
+
+    # Use tier1 for reliable builds in CI/test environments
+    if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ]; then
+        make tier1
+    else
+        make tier2
+    fi
+
+    # Verify the binary was created
+    if [ ! -f "bin/json_tools" ]; then
+        print_error "Failed to build json_tools binary"
+        exit 1
+    fi
+    print_success "Binary built successfully: bin/json_tools"
+
     cd c-lib/tests
     
     # Build test data generator

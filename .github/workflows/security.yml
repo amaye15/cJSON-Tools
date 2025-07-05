@@ -17,6 +17,7 @@ jobs:
   dependency-scan:
     name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - name: Checkout code
@@ -70,6 +71,7 @@ jobs:
   codeql-analysis:
     name: CodeQL Security Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read
@@ -89,6 +91,13 @@ jobs:
       with:
         languages: ${{ matrix.language }}
         queries: security-extended,security-and-quality
+        config: |
+          paths-ignore:
+            - "**/*.md"
+            - "docs/**"
+            - "**/*.txt"
+            - "**/test_*.json"
+            - "**/temp_test_data/**"
 
     - name: Setup build environment
       if: matrix.language == 'c'
@@ -101,6 +110,13 @@ jobs:
       run: |
         make clean
         make ci
+
+        # Verify binary was built
+        if [ ! -f "bin/json_tools" ]; then
+          echo "❌ Failed to build json_tools binary"
+          exit 1
+        fi
+        echo "✅ Binary built successfully for CodeQL analysis"
 
     - name: Build Python package
       if: matrix.language == 'python'
@@ -121,6 +137,7 @@ jobs:
   container-scan:
     name: Container Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       security-events: write
       contents: read
@@ -229,6 +246,7 @@ jobs:
   memory-safety:
     name: Memory Safety Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     
     steps:
     - name: Checkout code
@@ -242,7 +260,14 @@ jobs:
     - name: Build with AddressSanitizer
       run: |
         make clean
-        BUILD_TIER=1 CFLAGS="-fsanitize=address -g -O1" LDFLAGS="-fsanitize=address" make
+        CC=gcc BUILD_TIER=1 make CFLAGS="-Wall -Wextra -std=c99 -I./c-lib/include -DNDEBUG -pthread -O1 -fsanitize=address -g -D_GNU_SOURCE" LIBS="-pthread -lm -fsanitize=address"
+
+        # Verify binary was built
+        if [ ! -f "bin/json_tools" ]; then
+          echo "❌ Failed to build json_tools binary with AddressSanitizer"
+          exit 1
+        fi
+        echo "✅ Binary built successfully with AddressSanitizer"
 
     - name: Test with AddressSanitizer
       run: |

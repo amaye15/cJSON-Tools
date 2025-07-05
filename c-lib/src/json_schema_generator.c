@@ -566,6 +566,11 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
     SchemaNode** schemas = (SchemaNode**)malloc(array_size * sizeof(SchemaNode*));
     if (!schemas) return NULL;
 
+    // Initialize all pointers to NULL for safety
+    for (int i = 0; i < array_size; i++) {
+        schemas[i] = NULL;
+    }
+
     if (use_threads && array_size >= MIN_BATCH_SIZE_FOR_MT) {
         ThreadPool* pool = thread_pool_create(num_threads);
         if (pool) {
@@ -593,10 +598,28 @@ cJSON* generate_schema_from_batch(cJSON* json_array, int use_threads, int num_th
         }
     }
 
-    SchemaNode* merged_schema = schemas[0];
-    for (int i = 1; i < array_size; i++) {
-        merged_schema = merge_schema_nodes(merged_schema, schemas[i]);
-        free_schema_node(schemas[i]);
+    // Find the first valid schema
+    SchemaNode* merged_schema = NULL;
+    int first_valid = -1;
+    for (int i = 0; i < array_size; i++) {
+        if (schemas[i] != NULL) {
+            merged_schema = schemas[i];
+            first_valid = i;
+            break;
+        }
+    }
+
+    if (merged_schema == NULL) {
+        free(schemas);
+        return cJSON_CreateObject(); // Return empty schema if no valid schemas
+    }
+
+    // Merge with remaining schemas
+    for (int i = first_valid + 1; i < array_size; i++) {
+        if (schemas[i] != NULL) {
+            merged_schema = merge_schema_nodes(merged_schema, schemas[i]);
+            free_schema_node(schemas[i]);
+        }
     }
 
     cJSON* result = schema_node_to_json(merged_schema);

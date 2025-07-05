@@ -113,8 +113,14 @@ ifeq ($(COMPILER_TYPE),gcc)
 CFLAGS_LTO := -flto=auto
 LIBS_LTO := -flto=auto
 else ifeq ($(COMPILER_TYPE),clang)
+# Disable LTO on macOS due to compatibility issues
+ifeq ($(UNAME_S),Darwin)
+CFLAGS_LTO :=
+LIBS_LTO :=
+else
 CFLAGS_LTO := -flto
 LIBS_LTO := -flto
+endif
 else
 CFLAGS_LTO :=
 LIBS_LTO :=
@@ -149,8 +155,14 @@ ifeq ($(COMPILER_TYPE),gcc)
 CFLAGS_LTO := -flto=auto -fno-stack-protector
 LIBS_LTO := -flto=auto -Wl,--gc-sections
 else ifeq ($(COMPILER_TYPE),clang)
+# Disable LTO on macOS due to compatibility issues
+ifeq ($(UNAME_S),Darwin)
+CFLAGS_LTO := -fno-stack-protector
+LIBS_LTO := -Wl,-dead_strip
+else
 CFLAGS_LTO := -flto -fno-stack-protector
 LIBS_LTO := -flto -Wl,-dead_strip
+endif
 else
 CFLAGS_LTO :=
 LIBS_LTO :=
@@ -197,8 +209,14 @@ ifeq ($(COMPILER_TYPE),gcc)
 CFLAGS_LTO := -flto=auto -fno-stack-protector
 LIBS_LTO := -flto=auto -Wl,--gc-sections
 else ifeq ($(COMPILER_TYPE),clang)
+# Disable LTO on macOS due to compatibility issues
+ifeq ($(UNAME_S),Darwin)
+CFLAGS_LTO := -fno-stack-protector
+LIBS_LTO := -Wl,-dead_strip
+else
 CFLAGS_LTO := -flto -fno-stack-protector
 LIBS_LTO := -flto -Wl,-dead_strip
+endif
 else
 CFLAGS_LTO :=
 LIBS_LTO :=

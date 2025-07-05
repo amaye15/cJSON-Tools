@@ -213,7 +213,7 @@ static void detect_cpu_cores(cpu_features_t* features) {
             }
         }
         fclose(fp);
-        features->num_cores = physical_cores > 0 ? physical_cores : features->num_logical_cores;
+        features->num_cores = physical_cores > 0 ? (unsigned int)physical_cores : features->num_logical_cores;
     } else {
         features->num_cores = features->num_logical_cores;
     }

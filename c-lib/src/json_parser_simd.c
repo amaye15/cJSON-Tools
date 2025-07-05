@@ -304,7 +304,6 @@ HOT_PATH size_t strlen_simd(const char* str) {
     if (has_avx2) {
         // For safety, use standard strlen for short strings to avoid reading past boundaries
         // Only use SIMD for longer strings where we can safely read 32-byte chunks
-        const char* start = str;
 
         // First, do a quick scan to find approximate length or early termination
         const char* ptr = str;

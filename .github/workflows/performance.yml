@@ -28,6 +28,7 @@ jobs:
   performance-benchmarks:
     name: Performance Benchmarks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -45,6 +46,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Setup build environment (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -62,10 +64,28 @@ jobs:
         python -m pip install --upgrade pip
         pip install matplotlib pandas numpy psutil
 
+    - name: Cache build artifacts
+      uses: actions/cache@v3
+      with:
+        path: |
+          obj/
+          bin/
+        key: ${{ runner.os }}-build-${{ hashFiles('c-lib/src/**/*.c', 'c-lib/include/**/*.h', 'Makefile', 'build-config.mk') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
     - name: Build optimized version
       run: |
         make clean
         make tier3  # Use aggressive optimizations for performance testing
+
+        # Verify binary was built
+        if [ ! -f "bin/json_tools" ]; then
+          echo "❌ Failed to build json_tools binary"
+          exit 1
+        fi
+        echo "✅ Binary built successfully: bin/json_tools"
+        ls -la bin/json_tools
 
     - name: Build Python package
       run: |
@@ -96,15 +116,21 @@ jobs:
 
     - name: Run C library benchmarks
       run: |
-        cd c-lib/tests
-        chmod +x run_dynamic_tests.sh
-        
         echo "🚀 Running C Library Performance Benchmarks"
         echo "Platform: ${{ matrix.platform }}"
         echo "Sizes: ${{ steps.benchmark-config.outputs.sizes }}"
         echo "Iterations: ${{ steps.benchmark-config.outputs.iterations }}"
-        
-        # Run benchmarks with timing
+
+        # Run comprehensive performance tests
+        python3 scripts/performance_test.py \
+          --tiers 1,3 \
+          --sizes "${{ steps.benchmark-config.outputs.sizes }}" \
+          --iterations ${{ steps.benchmark-config.outputs.iterations }} \
+          --output performance_report_${{ matrix.platform }}.md
+
+        # Also run the original dynamic tests for compatibility
+        cd c-lib/tests
+        chmod +x run_dynamic_tests.sh
         time ./run_dynamic_tests.sh --sizes "${{ steps.benchmark-config.outputs.sizes }}" --benchmark
 
     - name: Run comprehensive benchmarks
@@ -568,6 +594,13 @@ jobs:
         
         print('📊 Performance charts generated: performance_charts.png')
         "
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports-${{ matrix.platform }}
+        path: performance_report_${{ matrix.platform }}.md
+        retention-days: 90
 
     - name: Upload performance charts
       uses: actions/upload-artifact@v4
