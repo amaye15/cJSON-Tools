@@ -1,12 +1,8 @@
+#include "../include/common.h"
 #include "../include/json_flattener.h"
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
 #include "../include/memory_pool.h"
-#include "../include/compiler_hints.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 // Print usage information
 void print_usage(const char* program_name) {

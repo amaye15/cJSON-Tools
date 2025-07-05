@@ -52,7 +52,7 @@ jobs:
         CXX: ${{ matrix.cxx }}
       run: |
         make clean
-        make
+        make ci
         ls -la bin/
 
     - name: Test C library basic functionality
@@ -121,12 +121,12 @@ jobs:
     - name: Build Python package
       run: |
         cd py-lib
-        python setup.py build_ext --inplace
+        BUILD_TIER=1 python setup.py build_ext --inplace
 
     - name: Install Python package
       run: |
         cd py-lib
-        pip install -e .
+        BUILD_TIER=1 pip install -e .
 
     - name: Test Python package
       run: |
@@ -314,8 +314,8 @@ jobs:
 
     - name: Build everything
       run: |
-        make clean && make
-        cd py-lib && pip install -e . && cd ..
+        make clean && make ci
+        cd py-lib && BUILD_TIER=1 pip install -e . && cd ..
 
     - name: Run C benchmarks
       run: |
@@ -384,8 +384,8 @@ jobs:
 
     - name: Build and install everything
       run: |
-        make clean && make
-        cd py-lib && pip install -e . && cd ..
+        make clean && make ci
+        cd py-lib && BUILD_TIER=1 pip install -e . && cd ..
 
     - name: Test C CLI with Python validation
       run: |

@@ -1,9 +1,7 @@
+#include "../include/common.h"
 #include "json_tools_builder.h"
 #include "json_flattener.h"
 #include "memory_pool.h"
-#include <stdlib.h>
-#include <string.h>
-#include <regex.h>
 
 #define INITIAL_OPERATION_CAPACITY 16
 #define STRING_POOL_INITIAL_SIZE 4096
@@ -99,7 +97,7 @@ JsonToolsBuilder* json_tools_builder_add_json(JsonToolsBuilder* builder, const c
     
     builder->json_data = cJSON_Parse(json_string);
     if (!builder->json_data) {
-        builder->error_message = strdup("Invalid JSON string");
+        builder->error_message = portable_strdup("Invalid JSON string");
         return builder;
     }
     
@@ -150,7 +148,7 @@ JsonToolsBuilder* json_tools_builder_pretty_print(JsonToolsBuilder* builder, boo
 char* json_tools_builder_build(JsonToolsBuilder* builder) {
     if (!builder || !builder->json_data) {
         if (builder && !builder->error_message) {
-            builder->error_message = strdup("No JSON data provided");
+            builder->error_message = portable_strdup("No JSON data provided");
         }
         return NULL;
     }
@@ -176,7 +174,7 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
         size_t new_capacity = builder->operation_capacity * 2;
         BuilderOperation* new_operations = realloc(builder->operations, sizeof(BuilderOperation) * new_capacity);
         if (!new_operations) {
-            builder->error_message = strdup("Memory allocation failed");
+            builder->error_message = portable_strdup("Memory allocation failed");
             return -1;
         }
         builder->operations = new_operations;
@@ -185,8 +183,8 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
 
     BuilderOperation* op = &builder->operations[builder->operation_count];
     op->type = type;
-    op->pattern = pattern ? strdup(pattern) : NULL;
-    op->replacement = replacement ? strdup(replacement) : NULL;
+    op->pattern = pattern ? portable_strdup(pattern) : NULL;
+    op->replacement = replacement ? portable_strdup(replacement) : NULL;
     op->compiled_regex = NULL;
     op->regex_valid = false;
     op->pattern_len = pattern ? strlen(pattern) : 0;
@@ -244,7 +242,7 @@ char* execute_operations(JsonToolsBuilder* builder) {
     // Create a deep copy of the JSON data for processing
     cJSON* working_json = cJSON_Duplicate(builder->json_data, 1);
     if (!working_json) {
-        builder->error_message = strdup("Failed to duplicate JSON data");
+        builder->error_message = portable_strdup("Failed to duplicate JSON data");
         return NULL;
     }
 
@@ -252,7 +250,7 @@ char* execute_operations(JsonToolsBuilder* builder) {
     cJSON* result = process_json_single_pass(working_json, builder->operations, builder->operation_count);
     if (!result) {
         cJSON_Delete(working_json);
-        builder->error_message = strdup("Failed to process operations");
+        builder->error_message = portable_strdup("Failed to process operations");
         return NULL;
     }
 
@@ -435,7 +433,7 @@ bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operat
 char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count) {
     if (!key) return NULL;
 
-    char* result = strdup(key);
+    char* result = portable_strdup(key);
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
@@ -447,7 +445,7 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
                     // Use a timeout-like approach by checking string length
                     regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
                     if (regex_result == 0) {
-                        char* new_result = strdup(operations[i].replacement);
+                        char* new_result = portable_strdup(operations[i].replacement);
                         if (new_result) {
                             free(result);
                             result = new_result;
@@ -459,7 +457,7 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
             } else if (operations[i].pattern) {
                 // ENHANCED FALLBACK: Smart pattern matching for common regex patterns
                 if (result && safe_pattern_match(result, operations[i].pattern)) {
-                    char* new_result = strdup(operations[i].replacement);
+                    char* new_result = portable_strdup(operations[i].replacement);
                     if (new_result) {
                         free(result);
                         result = new_result;
@@ -476,7 +474,7 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
 char* apply_value_replacements(const char* value, BuilderOperation* operations, size_t operation_count) {
     if (!value) return NULL;
 
-    char* result = strdup(value);
+    char* result = portable_strdup(value);
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
@@ -488,7 +486,7 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
                     // Use a timeout-like approach by checking string length
                     regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
                     if (regex_result == 0) {
-                        char* new_result = strdup(operations[i].replacement);
+                        char* new_result = portable_strdup(operations[i].replacement);
                         if (new_result) {
                             free(result);
                             result = new_result;
@@ -500,7 +498,7 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
             } else if (operations[i].pattern) {
                 // ENHANCED FALLBACK: Smart pattern matching for common regex patterns
                 if (result && safe_pattern_match(result, operations[i].pattern)) {
-                    char* new_result = strdup(operations[i].replacement);
+                    char* new_result = portable_strdup(operations[i].replacement);
                     if (new_result) {
                         free(result);
                         result = new_result;

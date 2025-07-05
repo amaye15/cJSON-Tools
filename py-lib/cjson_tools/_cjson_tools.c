@@ -1,5 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include "../../c-lib/include/common.h"
 #include "../../c-lib/include/cjson/cJSON.h"
 #include "../../c-lib/include/json_flattener.h"
 #include "../../c-lib/include/json_schema_generator.h"

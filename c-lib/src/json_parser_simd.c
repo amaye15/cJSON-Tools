@@ -1,8 +1,7 @@
-#include "../include/compiler_hints.h"
+#include "../include/common.h"
 #include "../include/string_view.h"
 #include "../include/simd_utils.h"
-#include <string.h>
-#include <stdlib.h>
+#include "../include/cpu_features.h"
 
 // Disable SIMD on Windows builds for initial PyPI release
 #ifdef THREADING_DISABLED

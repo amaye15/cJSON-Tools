@@ -1,16 +1,6 @@
+#include "../include/common.h"
 #include "../include/json_utils.h"
 #include "../include/simd_utils.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#ifndef __WINDOWS__
-#include <regex.h>
-#endif
-
-#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
-#define __WINDOWS__
-#endif
 
 // Simplified Windows implementation - avoid complex header conflicts
 #ifdef __WINDOWS__

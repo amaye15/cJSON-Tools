@@ -65,12 +65,12 @@ jobs:
     - name: Build optimized version
       run: |
         make clean
-        make
+        make tier3  # Use aggressive optimizations for performance testing
 
     - name: Build Python package
       run: |
         cd py-lib
-        pip install -e .
+        BUILD_TIER=3 pip install -e .
 
     - name: Determine benchmark size
       id: benchmark-config

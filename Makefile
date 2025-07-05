@@ -1,62 +1,12 @@
-CC = gcc
-CFLAGS_BASE = -Wall -Wextra -std=c99 -I./c-lib/include
+# ============================================================================
+# cJSON-Tools Main Makefile
+# ============================================================================
 
-# Platform-specific optimizations
-UNAME_S := $(shell uname -s)
-UNAME_P := $(shell uname -p)
+# Default compiler
+CC ?= gcc
 
-ifeq ($(UNAME_S),Linux)
-    # Linux-specific optimizations
-    CFLAGS_OPT = -O3 -march=native -mtune=native -flto=auto \
-                 -ffast-math -funroll-loops -fomit-frame-pointer \
-                 -finline-functions -fno-stack-protector \
-                 -ftree-vectorize -fprefetch-loop-arrays \
-                 -fprofile-arcs -ftest-coverage \
-                 -DNDEBUG -DUSE_HUGE_PAGES
-
-    # Enable profile-guided optimization if profile data exists
-    ifneq (,$(wildcard profile.gcda))
-        CFLAGS_OPT += -fprofile-use=profile.gcda
-    endif
-
-else ifeq ($(UNAME_S),Darwin)
-    # macOS optimizations
-    CFLAGS_OPT = -O3 -flto=full -funroll-loops \
-                 -fomit-frame-pointer -finline-functions \
-                 -DNDEBUG
-
-    # Universal binary support
-    ifeq ($(ARCH),universal)
-        CFLAGS_OPT += -arch x86_64 -arch arm64
-    else
-        CFLAGS_OPT += -march=native -mtune=native
-    endif
-
-else ifeq ($(UNAME_S),FreeBSD)
-    # FreeBSD optimizations
-    CFLAGS_OPT = -O3 -march=native -mtune=native \
-                 -funroll-loops -fomit-frame-pointer \
-                 -DNDEBUG -DHAS_SUPERPAGE_SUPPORT
-else
-    # Default optimizations for other platforms
-    CFLAGS_OPT = -O3 -funroll-loops -fomit-frame-pointer -DNDEBUG
-endif
-
-CFLAGS = $(CFLAGS_BASE) $(CFLAGS_OPT)
-
-# Profile-guided optimization support
-CFLAGS_PGO = $(CFLAGS) -fprofile-generate
-CFLAGS_PGO_USE = $(CFLAGS) -fprofile-use -fprofile-correction
-
-# Link-time optimization (platform-specific)
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Linux)
-    LIBS = -pthread -flto=auto -Wl,--gc-sections
-else ifeq ($(UNAME_S),Darwin)
-    LIBS = -pthread -flto=auto -Wl,-dead_strip
-else
-    LIBS = -pthread -flto=auto
-endif
+# Include build configuration system
+include build-config.mk
 
 SRC_DIR = c-lib/src
 OBJ_DIR = obj
@@ -72,7 +22,10 @@ SRCS = $(SRC_DIR)/json_tools.c \
        $(SRC_DIR)/cJSON.c \
        $(SRC_DIR)/memory_pool.c \
        $(SRC_DIR)/json_parser_simd.c \
-       $(SRC_DIR)/lockfree_queue.c
+       $(SRC_DIR)/lockfree_queue.c \
+       $(SRC_DIR)/portable_string.c \
+       $(SRC_DIR)/common.c \
+       $(SRC_DIR)/cpu_features.c
 
 # Object files
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
@@ -81,18 +34,18 @@ OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 TARGET = $(BIN_DIR)/json_tools
 
 # Default target
-all: directories $(TARGET)
+all: show-build-config directories $(TARGET)
 
 # Create directories
 directories:
 	@mkdir -p $(OBJ_DIR) $(BIN_DIR)
 
 # Compile source files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | directories
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Link object files
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) | directories
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 # Clean up
@@ -115,12 +68,38 @@ pgo: clean
 	$(CC) $(CFLAGS_PGO_USE) -o $(TARGET) $(SRCS) $(LIBS)
 	@echo "PGO build complete"
 
+# ============================================================================
+# Build Tier Targets
+# ============================================================================
+
+# Tier 1: Conservative (CI/containers)
+tier1:
+	$(MAKE) BUILD_TIER=1 all
+
+# Tier 2: Moderate (general use)
+tier2:
+	$(MAKE) BUILD_TIER=2 all
+
+# Tier 3: Aggressive (native builds)
+tier3:
+	$(MAKE) BUILD_TIER=3 all
+
+# Tier 4: Maximum (PGO builds)
+tier4:
+	$(MAKE) BUILD_TIER=4 all
+
 # Debug build
-debug: CFLAGS = -Wall -Wextra -std=c99 -g -O0 -DDEBUG -I./c-lib/include
-debug: LIBS = -pthread
-debug: directories $(TARGET)
+debug:
+	$(MAKE) DEBUG=1 all
+
+# CI-friendly build (alias for tier1)
+ci: tier1
+
+# Native optimized build (alias for tier3)
+native: tier3
 
 .PHONY: all directories clean install uninstall pgo debug format format-check lint dev-install setup-hooks
+.PHONY: tier1 tier2 tier3 tier4 ci native show-build-config
 
 # Python code formatting targets
 format:
@@ -152,17 +131,20 @@ setup-hooks:
 	pre-commit install
 	@echo "✅ Pre-commit hooks installed!"
 
-# Profile-guided optimization targets
+# ============================================================================
+# Profile-Guided Optimization (PGO) Targets
+# ============================================================================
+
 pgo-generate:
 	@echo "🎯 Building with profile generation..."
 	$(MAKE) clean
-	$(MAKE) CFLAGS_OPT="$(CFLAGS_OPT) -fprofile-generate" all
-	@echo "✅ Profile generation build complete!"
+	$(MAKE) BUILD_TIER=4 PGO_GENERATE=1
+	@echo "✅ PGO instrumented build complete!"
 
 pgo-use:
 	@echo "🚀 Building with profile-guided optimization..."
 	$(MAKE) clean
-	$(MAKE) CFLAGS_OPT="$(CFLAGS_OPT) -fprofile-use" all
+	$(MAKE) BUILD_TIER=4 PGO_USE=1
 	@echo "✅ PGO optimized build complete!"
 
 pgo-full: pgo-generate
@@ -170,3 +152,12 @@ pgo-full: pgo-generate
 	cd c-lib/tests && ./run_dynamic_tests.sh --sizes "1000,10000" --quick
 	$(MAKE) pgo-use
 	@echo "🎯 Full PGO optimization complete!"
+
+# Clean PGO data
+pgo-clean:
+	@echo "🧹 Cleaning PGO profile data..."
+	find . -name "*.gcda" -delete
+	find . -name "*.gcno" -delete
+	@echo "✅ PGO data cleaned!"
+
+.PHONY: pgo-generate pgo-use pgo-full pgo-clean

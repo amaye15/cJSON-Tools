@@ -1,0 +1,263 @@
+name: Build Tier Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      test_all_tiers:
+        description: 'Test all build tiers'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  # ============================================================================
+  # Test All Build Tiers
+  # ============================================================================
+  test-build-tiers:
+    name: Test Build Tier ${{ matrix.tier }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        tier: [1, 2, 3]
+        include:
+          - os: ubuntu-latest
+            cc: gcc
+          - os: macos-latest
+            cc: clang
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup build environment (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Setup build environment (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Ensure Xcode command line tools are available
+        xcode-select --install 2>/dev/null || true
+
+    - name: Show build configuration
+      env:
+        CC: ${{ matrix.cc }}
+        BUILD_TIER: ${{ matrix.tier }}
+      run: |
+        make show-build-config
+
+    - name: Build C library (Tier ${{ matrix.tier }})
+      env:
+        CC: ${{ matrix.cc }}
+        BUILD_TIER: ${{ matrix.tier }}
+      run: |
+        make clean
+        make
+        ls -la bin/
+
+    - name: Test C library basic functionality
+      run: |
+        echo '{"user": {"name": "John", "details": {"age": 30, "city": "NYC"}}}' | ./bin/json_tools -f
+        echo '{"test": "data"}' | ./bin/json_tools -s
+
+    - name: Build Python package (Tier ${{ matrix.tier }})
+      env:
+        BUILD_TIER: ${{ matrix.tier }}
+      run: |
+        cd py-lib
+        python -m pip install --upgrade pip
+        pip install setuptools wheel
+        python setup.py build_ext --inplace
+
+    - name: Install Python package
+      env:
+        BUILD_TIER: ${{ matrix.tier }}
+      run: |
+        cd py-lib
+        pip install -e .
+
+    - name: Test Python functionality
+      run: |
+        cd py-lib
+        python -c "
+        import cjson_tools
+        import json
+        
+        # Test basic functionality
+        data = {'test': 'data', 'nested': {'value': 123}}
+        result = cjson_tools.flatten_json(json.dumps(data))
+        print('✅ Tier ${{ matrix.tier }} test passed:', result)
+        "
+
+    - name: Run comprehensive tests
+      run: |
+        cd c-lib/tests
+        chmod +x run_dynamic_tests.sh
+        ./run_dynamic_tests.sh --sizes "100,500" --quick
+
+    - name: Upload build artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-tier-${{ matrix.tier }}-${{ matrix.os }}-artifacts
+        path: |
+          bin/
+          py-lib/build/
+          c-lib/tests/temp_test_data/
+        retention-days: 3
+
+  # ============================================================================
+  # Cross-Architecture Testing (ARM64 emulation)
+  # ============================================================================
+  test-cross-architecture:
+    name: Test Cross-Architecture (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: ${{ matrix.arch }}
+
+    - name: Test build in emulated environment
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/${{ matrix.arch }}
+        file: |
+          FROM --platform=linux/${{ matrix.arch }} ubuntu:22.04
+          
+          # Install dependencies
+          RUN apt-get update && apt-get install -y \
+              build-essential \
+              python3 \
+              python3-pip \
+              python3-dev \
+              && rm -rf /var/lib/apt/lists/*
+          
+          # Copy source code
+          COPY . /app
+          WORKDIR /app
+          
+          # Test conservative build (Tier 1)
+          RUN make clean && BUILD_TIER=1 make
+          
+          # Test basic functionality
+          RUN echo '{"test": "data"}' | ./bin/json_tools -f
+          
+          # Test Python build
+          RUN cd py-lib && BUILD_TIER=1 python3 setup.py build_ext --inplace
+        push: false
+
+  # ============================================================================
+  # Container Environment Testing
+  # ============================================================================
+  test-container-environments:
+    name: Test in Container (${{ matrix.container }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container:
+          - ubuntu:20.04
+          - ubuntu:22.04
+          - debian:11
+          - debian:12
+          - alpine:3.18
+
+    container:
+      image: ${{ matrix.container }}
+
+    steps:
+    - name: Install dependencies (Ubuntu/Debian)
+      if: contains(matrix.container, 'ubuntu') || contains(matrix.container, 'debian')
+      run: |
+        apt-get update
+        apt-get install -y build-essential python3 python3-pip python3-dev git
+
+    - name: Install dependencies (Alpine)
+      if: contains(matrix.container, 'alpine')
+      run: |
+        apk add --no-cache build-base python3 python3-dev py3-pip git
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Test conservative build in container
+      env:
+        CONTAINER: 1
+      run: |
+        make clean
+        make ci  # Should auto-detect container environment and use tier 1
+        echo '{"test": "container"}' | ./bin/json_tools -f
+
+    - name: Test Python build in container
+      env:
+        CONTAINER: 1
+      run: |
+        cd py-lib
+        python3 setup.py build_ext --inplace  # Should auto-detect tier 1
+
+  # ============================================================================
+  # Build Configuration Validation
+  # ============================================================================
+  validate-build-config:
+    name: Validate Build Configuration
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Test build configuration detection
+      run: |
+        echo "Testing build configuration system..."
+        
+        # Test explicit tier setting
+        for tier in 1 2 3 4; do
+          echo "Testing BUILD_TIER=$tier"
+          BUILD_TIER=$tier make show-build-config
+        done
+        
+        # Test environment detection
+        echo "Testing CI environment detection"
+        CI=1 make show-build-config
+        
+        echo "Testing container environment detection"
+        CONTAINER=1 make show-build-config
+        
+        echo "Testing ACT environment detection"
+        ACT=1 make show-build-config
+
+    - name: Validate all build targets work
+      run: |
+        echo "Testing all build targets..."
+        
+        make clean && make tier1
+        make clean && make tier2
+        make clean && make tier3
+        make clean && make ci
+        make clean && make debug
+        
+        echo "All build targets validated successfully!"

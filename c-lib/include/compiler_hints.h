@@ -1,6 +1,19 @@
 #ifndef COMPILER_HINTS_H
 #define COMPILER_HINTS_H
 
+// Feature test macros for POSIX compliance and standards
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+
 // Advanced compiler hints for better optimization
 #ifdef _MSC_VER
 // MSVC-specific definitions

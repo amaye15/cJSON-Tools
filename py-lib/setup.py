@@ -1,5 +1,6 @@
 import os
 import platform
+import sys
 
 from setuptools import Extension, find_packages, setup
 
@@ -20,6 +21,65 @@ if not os.path.exists(c_lib_src) or not os.path.exists(c_lib_include):
         raise RuntimeError(
             "Cannot find C library source files. Please ensure you're building from the correct directory."
         )
+
+# ============================================================================
+# Environment Detection and Build Configuration
+# ============================================================================
+
+def detect_build_environment():
+    """Detect the build environment and return appropriate build tier."""
+    # Check for CI/CD environments
+    ci_indicators = [
+        'CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'TRAVIS',
+        'CIRCLECI', 'JENKINS_URL', 'BUILDKITE', 'GITLAB_CI'
+    ]
+
+    if any(os.environ.get(var) for var in ci_indicators):
+        return 'ci'
+
+    # Check for container environments
+    container_indicators = [
+        'CONTAINER', 'DOCKER_CONTAINER', 'KUBERNETES_SERVICE_HOST'
+    ]
+
+    if any(os.environ.get(var) for var in container_indicators):
+        return 'container'
+
+    # Check for act (local GitHub Actions runner)
+    if os.environ.get('ACT'):
+        return 'act'
+
+    # Check if we're in a virtual environment or conda environment
+    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+        return 'venv'
+
+    return 'native'
+
+def get_build_tier():
+    """Get the appropriate build tier based on environment."""
+    # Allow explicit override
+    tier = os.environ.get('BUILD_TIER')
+    if tier:
+        try:
+            return int(tier)
+        except ValueError:
+            print(f"Warning: Invalid BUILD_TIER value '{tier}', using auto-detection")
+
+    env = detect_build_environment()
+
+    # Conservative tier for CI/containers
+    if env in ['ci', 'container', 'act']:
+        return 1
+
+    # Moderate tier for virtual environments and native (safer default for Python builds)
+    return 2
+
+# Get build configuration
+build_env = detect_build_environment()
+build_tier = get_build_tier()
+
+print(f"Python build environment: {build_env}")
+print(f"Using build tier: {build_tier}")
 
 # Platform-specific configurations
 libraries = []
@@ -69,40 +129,76 @@ elif is_mingw_cross_compile:
     ]
     extra_link_args = ["-static-libgcc", "-static-libstdc++", "-lpthread"]
 else:
-    # Unix-like systems (Linux, macOS) with target-specific optimizations
+    # Unix-like systems (Linux, macOS) with tier-based optimizations
     libraries.append("pthread")
+
+    # Base flags for all tiers
     extra_compile_args = [
         "-std=c99",
         "-Wall",
         "-Wextra",
-        "-O3",
-        "-flto",
         "-DNDEBUG",
-        "-ffast-math",
-        "-funroll-loops",
     ]
 
-    # Target-specific optimizations
-    import platform
-    import sys
+    # Tier-specific optimizations
+    if build_tier == 1:
+        # Conservative: Maximum compatibility
+        extra_compile_args.extend(["-O2"])
+        extra_link_args = []
 
-    if platform.machine() == "x86_64":
-        extra_compile_args.extend(
-            ["-march=native", "-mtune=native", "-msse4.2", "-mavx2"]
-        )
-    elif platform.machine() in ["aarch64", "arm64"]:
-        # ARM64 optimizations (Linux and macOS)
-        if sys.platform == "darwin":
-            # macOS ARM64 - avoid -march=native which causes issues
-            extra_compile_args.extend(["-mcpu=apple-a14"])
+    elif build_tier == 2:
+        # Moderate: Balanced performance
+        extra_compile_args.extend([
+            "-O3",
+            "-funroll-loops",
+            "-fomit-frame-pointer"
+        ])
+
+        # Safe architecture-specific optimizations
+        if platform.machine() == "x86_64":
+            extra_compile_args.extend(["-msse2", "-msse4.2"])
+        elif platform.machine() in ["aarch64", "arm64"]:
+            if sys.platform == "darwin":
+                extra_compile_args.extend(["-mcpu=generic"])
+            else:
+                extra_compile_args.extend(["-mcpu=generic"])
+
+        # Conservative LTO
+        extra_compile_args.extend(["-flto"])
+        extra_link_args = ["-flto"]
+
+    elif build_tier == 3:
+        # Aggressive: Native optimization (only for explicit native builds)
+        extra_compile_args.extend([
+            "-O3",
+            "-funroll-loops",
+            "-fomit-frame-pointer",
+            "-finline-functions",
+            "-ffast-math",
+            "-ftree-vectorize"
+        ])
+
+        # Native architecture optimizations
+        if platform.machine() == "x86_64":
+            extra_compile_args.extend(["-march=native", "-mtune=native", "-msse4.2", "-mavx2"])
+        elif platform.machine() in ["aarch64", "arm64"]:
+            if sys.platform == "darwin":
+                extra_compile_args.extend(["-mcpu=apple-a14"])
+            else:
+                extra_compile_args.extend(["-march=native", "-mcpu=native"])
         else:
-            # Linux ARM64
-            extra_compile_args.extend(["-march=native", "-mcpu=native"])
-    else:
-        # Generic optimizations for other architectures
-        extra_compile_args.extend(["-march=native", "-mtune=native"])
+            extra_compile_args.extend(["-march=native", "-mtune=native"])
 
-    extra_link_args = ["-flto"]
+        # Aggressive LTO
+        extra_compile_args.extend(["-flto"])
+        extra_link_args = ["-flto"]
+
+    else:
+        # Default to tier 2 for unknown tiers
+        print(f"Warning: Unknown build tier {build_tier}, defaulting to tier 2")
+        build_tier = 2
+        extra_compile_args.extend(["-O3", "-funroll-loops"])
+        extra_link_args = []
 
 # Define the extension module
 cjson_tools_module = Extension(
@@ -118,6 +214,9 @@ cjson_tools_module = Extension(
         os.path.join(c_lib_src, "memory_pool.c"),
         os.path.join(c_lib_src, "json_parser_simd.c"),
         os.path.join(c_lib_src, "lockfree_queue.c"),
+        os.path.join(c_lib_src, "portable_string.c"),
+        os.path.join(c_lib_src, "common.c"),
+        os.path.join(c_lib_src, "cpu_features.c"),
     ],
     include_dirs=[
         c_lib_include,

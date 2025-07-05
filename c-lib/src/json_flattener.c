@@ -1,16 +1,12 @@
+#include "../include/common.h"
 #include "../include/json_flattener.h"
 #include "../include/json_utils.h"
 #include "../include/thread_pool.h"
 #include "../include/memory_pool.h"
 #include "../include/string_view.h"
-#include "../include/compiler_hints.h"
 #include "../include/simd_utils.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS
 #pragma warning(push)
 #pragma warning(disable: 4996) // Disable unsafe function warnings
 #endif

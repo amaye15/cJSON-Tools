@@ -100,7 +100,7 @@ jobs:
       if: matrix.language == 'c'
       run: |
         make clean
-        make
+        make ci
 
     - name: Build Python package
       if: matrix.language == 'python'
@@ -108,7 +108,7 @@ jobs:
         cd py-lib
         python -m pip install --upgrade pip
         pip install setuptools wheel
-        python setup.py build_ext --inplace
+        BUILD_TIER=1 python setup.py build_ext --inplace
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
@@ -144,8 +144,8 @@ jobs:
         WORKDIR /app
         
         # Build and install
-        RUN make clean && make
-        RUN cd py-lib && pip install -e .
+        RUN make clean && make ci
+        RUN cd py-lib && BUILD_TIER=1 pip install -e .
         
         # Create non-root user
         RUN useradd -m -u 1000 cjsonuser
@@ -242,7 +242,7 @@ jobs:
     - name: Build with AddressSanitizer
       run: |
         make clean
-        CFLAGS="-fsanitize=address -g -O1" LDFLAGS="-fsanitize=address" make
+        BUILD_TIER=1 CFLAGS="-fsanitize=address -g -O1" LDFLAGS="-fsanitize=address" make
 
     - name: Test with AddressSanitizer
       run: |
@@ -253,7 +253,7 @@ jobs:
     - name: Build normal version for Valgrind
       run: |
         make clean
-        CFLAGS="-g -O0" make
+        BUILD_TIER=1 DEBUG=1 make
 
     - name: Test with Valgrind
       run: |

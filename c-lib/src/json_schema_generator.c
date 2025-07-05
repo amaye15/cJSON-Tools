@@ -1,22 +1,15 @@
+#include "../include/common.h"
 #include "../include/json_schema_generator.h"
 #include "../include/json_utils.h"
 #include "../include/thread_pool.h"
 #include "../include/memory_pool.h"
 #include "../include/string_view.h"
-#include "../include/compiler_hints.h"
 #include "../include/simd_utils.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
 
 // Windows compatibility for __builtin_expect
 #ifdef _MSC_VER
 #define __builtin_expect(expr, expected) (expr)
 #endif
-
-// Enhanced hash table optimization will be defined after PropertyNode
-#include <limits.h>
 
 #define MIN_OBJECTS_PER_THREAD 25   // Reduced for better parallelization
 #define MIN_BATCH_SIZE_FOR_MT 100   // Reduced threshold for multi-threading

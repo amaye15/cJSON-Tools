@@ -23,9 +23,9 @@ jobs:
 
     - name: Test C library build
       run: |
-        echo "Testing basic build..."
+        echo "Testing basic build with CI-optimized settings..."
         make clean
-        make
+        make ci
         echo "Build successful!"
 
     - name: Test basic functionality
@@ -43,12 +43,15 @@ jobs:
         cd py-lib
         python -m pip install --upgrade pip
         pip install setuptools wheel
-        python setup.py build_ext --inplace
+        # Use CI-optimized build tier
+        BUILD_TIER=1 python setup.py build_ext --inplace
         echo "Python build successful!"
 
     - name: Test Python functionality
       run: |
         cd py-lib
+        # Install the package first
+        BUILD_TIER=1 pip install -e .
         python -c "
         import cjson_tools
         import json
