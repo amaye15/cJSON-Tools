@@ -226,6 +226,7 @@ cjson_tools_module = Extension(
         os.path.join(c_lib_src, "portable_string.c"),
         os.path.join(c_lib_src, "common.c"),
         os.path.join(c_lib_src, "cpu_features.c"),
+        os.path.join(c_lib_src, "regex_engine.c"),
     ],
     include_dirs=[
         c_lib_include,
