@@ -148,7 +148,7 @@ except FileNotFoundError:
 
 setup(
     name="cjson-tools",
-    version="1.7.0",
+    version="1.8.0",
     description="High-performance Python bindings for JSON flattening, path type analysis, and schema generation",
     long_description=long_description,
     long_description_content_type="text/markdown",

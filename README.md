@@ -14,9 +14,10 @@ A high-performance C toolkit for transforming and analyzing JSON data with Pytho
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
 2. **Path Type Analysis**: Get flattened paths with their data types for schema discovery
 3. **JSON Schema Generation**: Analyzes JSON objects and generates a unified JSON schema
-4. **Multi-threading Support**: Optimized performance for processing large JSON datasets
-5. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
-6. **Python Bindings**: Use the library directly from Python with native C performance
+4. **JSON Filtering**: Remove keys with empty string values or null values
+5. **Multi-threading Support**: Optimized performance for processing large JSON datasets
+6. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
+7. **Python Bindings**: Use the library directly from Python with native C performance
 
 ## 🚀 Quick Start
 
@@ -41,6 +42,16 @@ print(paths_with_types)  # {"user.name": "string", "user.address.city": "string"
 # Generate JSON schema
 schema = cjson_tools.generate_schema(json.dumps(data))
 print(schema)
+
+# Remove keys with empty string values
+data_with_empty = {"name": "John", "email": "", "phone": "123-456-7890", "bio": ""}
+cleaned = cjson_tools.remove_empty_strings(json.dumps(data_with_empty))
+print(cleaned)  # {"name": "John", "phone": "123-456-7890"}
+
+# Remove keys with null values
+data_with_nulls = {"name": "John", "email": None, "phone": "123-456-7890", "address": None}
+filtered = cjson_tools.remove_nulls(json.dumps(data_with_nulls))
+print(filtered)  # {"name": "John", "phone": "123-456-7890"}
 ```
 
 ### C Library
@@ -78,6 +89,13 @@ make
 - **Required Properties**: Automatically detects required vs optional fields
 - **Nullable Support**: Identifies fields that can be null
 - **Array Analysis**: Intelligent sampling for large arrays
+
+### 🧹 JSON Filtering
+- **Remove Empty Strings**: Filter out keys with empty string (`""`) values
+- **Remove Null Values**: Filter out keys with `null` values
+- **Recursive Processing**: Works on deeply nested objects and arrays
+- **Structure Preservation**: Maintains JSON structure while filtering
+- **Pretty Printing**: Optional formatted output for filtered results
 
 ### ⚡ Performance Optimizations
 - **Multi-threading**: Parallel processing for large datasets
@@ -297,6 +315,8 @@ result = cjson_tools.flatten_json_batch(large_dataset, use_threads=False)
 #   -h, --help                 Show help message
 #   -f, --flatten              Flatten nested JSON (default)
 #   -s, --schema               Generate JSON schema
+#   -e, --remove-empty         Remove keys with empty string values
+#   -n, --remove-nulls         Remove keys with null values
 #   -t, --threads [num]        Use multi-threading (auto-detect optimal count)
 #   -p, --pretty               Pretty-print output
 #   -o, --output <file>        Write to file instead of stdout
@@ -408,6 +428,47 @@ Output:
   },
   "required": ["id", "name", "email", "active"]
 }
+```
+
+#### JSON Filtering
+
+**Remove Empty Strings:**
+```bash
+# Remove keys with empty string values
+echo '{"name": "John", "email": "", "phone": "123-456-7890", "bio": ""}' | ./bin/json_tools -e -
+
+# Output: {"name":"John","phone":"123-456-7890"}
+```
+
+**Remove Null Values:**
+```bash
+# Remove keys with null values
+echo '{"name": "John", "email": null, "phone": "123-456-7890", "address": null}' | ./bin/json_tools -n -
+
+# Output: {"name":"John","phone":"123-456-7890"}
+```
+
+**Complex Example:**
+```bash
+# Input with nested objects and arrays
+echo '{
+  "user": {
+    "name": "John Doe",
+    "email": "",
+    "profile": {
+      "bio": "",
+      "website": null,
+      "social": {
+        "twitter": "",
+        "linkedin": "john-doe",
+        "github": null
+      }
+    }
+  },
+  "preferences": ["", "email", null, "sms"]
+}' | ./bin/json_tools -e -p -
+
+# Removes all empty strings recursively while preserving structure
 ```
 
 ## Performance
