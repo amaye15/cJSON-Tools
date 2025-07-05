@@ -1,6 +1,7 @@
 #include "../include/common.h"
 #include "../include/json_utils.h"
 #include "../include/simd_utils.h"
+#include "../include/regex_engine.h"
 
 // Simplified Windows implementation - avoid complex header conflicts
 #ifdef __WINDOWS__
@@ -349,10 +350,9 @@ static cJSON* replace_keys_recursive(const cJSON* json, const char* pattern, con
     // For now, just return a copy - Windows regex support can be added later
     return cJSON_Duplicate(json, 1);
 #else
-    // POSIX regex support for Unix-like systems
-    regex_t regex;
-    int regex_result = regcomp(&regex, pattern, REG_EXTENDED);
-    if (regex_result != 0) {
+    // HIGH-PERFORMANCE: Use optimized regex engine for Unix-like systems
+    regex_engine_t* regex = regex_compile(pattern, REGEX_FLAG_OPTIMIZE);
+    if (!regex) {
         // Invalid regex pattern, return a copy of the original
         return cJSON_Duplicate(json, 1);
     }
@@ -360,7 +360,7 @@ static cJSON* replace_keys_recursive(const cJSON* json, const char* pattern, con
     if (cJSON_IsObject(json)) {
         cJSON* new_obj = cJSON_CreateObject();
         if (UNLIKELY(!new_obj)) {
-            regfree(&regex);
+            regex_free(regex);
             return NULL;
         }
 
@@ -370,13 +370,15 @@ static cJSON* replace_keys_recursive(const cJSON* json, const char* pattern, con
             char* new_key = NULL;
 
             if (key) {
-                // Test if the key matches the regex pattern
-                regmatch_t match;
-                int match_result = regexec(&regex, key, 1, &match, 0);
-
-                if (match_result == 0) {
-                    // Key matches pattern, use replacement
-                    new_key = my_strdup(replacement);
+                // Test if the key matches the regex pattern and perform replacement
+                if (regex_test(regex, key)) {
+                    // Key matches pattern, perform regex replacement
+                    regex_replace_result_t replace_result = regex_replace_first(regex, key, replacement);
+                    if (replace_result.success && replace_result.result) {
+                        new_key = replace_result.result;  // Transfer ownership
+                    } else {
+                        new_key = my_strdup(key);  // Fallback to original
+                    }
                 } else {
                     // Key doesn't match, keep original
                     new_key = my_strdup(key);
@@ -395,12 +397,12 @@ static cJSON* replace_keys_recursive(const cJSON* json, const char* pattern, con
             child = child->next;
         }
 
-        regfree(&regex);
+        regex_free(regex);
         return new_obj;
     } else if (cJSON_IsArray(json)) {
         cJSON* new_array = cJSON_CreateArray();
         if (UNLIKELY(!new_array)) {
-            regfree(&regex);
+            regex_free(regex);
             return NULL;
         }
 
@@ -414,11 +416,11 @@ static cJSON* replace_keys_recursive(const cJSON* json, const char* pattern, con
             child = child->next;
         }
 
-        regfree(&regex);
+        regex_free(regex);
         return new_array;
     } else {
         // For primitive values, create a copy
-        regfree(&regex);
+        regex_free(regex);
         return cJSON_Duplicate(json, 1);
     }
 #endif /* !__WINDOWS__ */
@@ -447,10 +449,9 @@ static cJSON* replace_values_recursive(const cJSON* json, const char* pattern, c
     // For now, just return a copy - Windows regex support can be added later
     return cJSON_Duplicate(json, 1);
 #else
-    // POSIX regex support for Unix-like systems
-    regex_t regex;
-    int regex_result = regcomp(&regex, pattern, REG_EXTENDED);
-    if (regex_result != 0) {
+    // HIGH-PERFORMANCE: Use optimized regex engine for Unix-like systems
+    regex_engine_t* regex = regex_compile(pattern, REGEX_FLAG_OPTIMIZE);
+    if (!regex) {
         // Invalid regex pattern, return a copy of the original
         return cJSON_Duplicate(json, 1);
     }
@@ -458,7 +459,7 @@ static cJSON* replace_values_recursive(const cJSON* json, const char* pattern, c
     if (cJSON_IsObject(json)) {
         cJSON* new_obj = cJSON_CreateObject();
         if (UNLIKELY(!new_obj)) {
-            regfree(&regex);
+            regex_free(regex);
             return NULL;
         }
 
@@ -475,12 +476,12 @@ static cJSON* replace_values_recursive(const cJSON* json, const char* pattern, c
             child = child->next;
         }
 
-        regfree(&regex);
+        regex_free(regex);
         return new_obj;
     } else if (cJSON_IsArray(json)) {
         cJSON* new_array = cJSON_CreateArray();
         if (UNLIKELY(!new_array)) {
-            regfree(&regex);
+            regex_free(regex);
             return NULL;
         }
 
@@ -494,32 +495,39 @@ static cJSON* replace_values_recursive(const cJSON* json, const char* pattern, c
             child = child->next;
         }
 
-        regfree(&regex);
+        regex_free(regex);
         return new_array;
     } else if (cJSON_IsString(json)) {
         // This is a string value - check if it matches the pattern
         const char* string_value = cJSON_GetStringValue(json);
         if (string_value) {
-            regmatch_t match;
-            int match_result = regexec(&regex, string_value, 1, &match, 0);
-
-            if (match_result == 0) {
-                // String matches pattern, use replacement
-                regfree(&regex);
-                return cJSON_CreateString(replacement);
+            // Test if the string matches the regex pattern and perform replacement
+            if (regex_test(regex, string_value)) {
+                // String matches pattern, perform regex replacement
+                regex_replace_result_t replace_result = regex_replace_first(regex, string_value, replacement);
+                if (replace_result.success && replace_result.result) {
+                    cJSON* result_json = cJSON_CreateString(replace_result.result);
+                    free(replace_result.result);  // Free the replacement result
+                    regex_free(regex);
+                    return result_json;
+                } else {
+                    // Fallback to original
+                    regex_free(regex);
+                    return cJSON_CreateString(string_value);
+                }
             } else {
                 // String doesn't match, keep original
-                regfree(&regex);
+                regex_free(regex);
                 return cJSON_CreateString(string_value);
             }
         } else {
             // Invalid string, return copy
-            regfree(&regex);
+            regex_free(regex);
             return cJSON_Duplicate(json, 1);
         }
     } else {
         // For non-string primitive values (numbers, booleans, null), create a copy
-        regfree(&regex);
+        regex_free(regex);
         return cJSON_Duplicate(json, 1);
     }
 #endif /* !__WINDOWS__ */

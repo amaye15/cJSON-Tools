@@ -25,7 +25,8 @@ SRCS = $(SRC_DIR)/json_tools.c \
        $(SRC_DIR)/lockfree_queue.c \
        $(SRC_DIR)/portable_string.c \
        $(SRC_DIR)/common.c \
-       $(SRC_DIR)/cpu_features.c
+       $(SRC_DIR)/cpu_features.c \
+       $(SRC_DIR)/regex_engine.c
 
 # Object files
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))

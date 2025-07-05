@@ -260,7 +260,8 @@ jobs:
     - name: Build with AddressSanitizer
       run: |
         make clean
-        CC=gcc BUILD_TIER=1 make CFLAGS="-Wall -Wextra -std=c99 -I./c-lib/include -DNDEBUG -pthread -O1 -fsanitize=address -g -D_GNU_SOURCE" LIBS="-pthread -lm -fsanitize=address"
+        # Build with AddressSanitizer using the build system
+        CC=gcc BUILD_TIER=1 make all CFLAGS_EXTRA="-fsanitize=address -g -O1" LIBS_EXTRA="-fsanitize=address"
 
         # Verify binary was built
         if [ ! -f "bin/json_tools" ]; then

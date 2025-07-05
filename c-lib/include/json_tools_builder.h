@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <regex.h>
+#include "regex_engine.h"
 #include "cjson/cJSON.h"
 
 #ifdef __cplusplus
@@ -28,7 +28,7 @@ typedef struct {
     OperationType type;
     char* pattern;              // For regex operations
     char* replacement;          // For regex operations
-    regex_t* compiled_regex;    // Pre-compiled regex for performance
+    regex_engine_t* compiled_regex;  // High-performance compiled regex
     bool regex_valid;           // Whether regex compilation succeeded
     size_t pattern_len;         // Cached pattern length
     size_t replacement_len;     // Cached replacement length

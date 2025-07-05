@@ -247,8 +247,8 @@ endif
 # Final Flag Assembly
 # ============================================================================
 
-CFLAGS := $(CFLAGS_BASE) $(CFLAGS_OPT) $(CFLAGS_ARCH) $(CFLAGS_LTO) $(CFLAGS_PGO) $(CFLAGS_PLATFORM)
-LIBS := $(LIBS_BASE) $(LIBS_LTO) $(LIBS_PGO) $(LIBS_PLATFORM)
+CFLAGS := $(CFLAGS_BASE) $(CFLAGS_OPT) $(CFLAGS_ARCH) $(CFLAGS_LTO) $(CFLAGS_PGO) $(CFLAGS_PLATFORM) $(CFLAGS_EXTRA)
+LIBS := $(LIBS_BASE) $(LIBS_LTO) $(LIBS_PGO) $(LIBS_PLATFORM) $(LIBS_EXTRA)
 
 # ============================================================================
 # Build Information Display

@@ -2,6 +2,7 @@
 #include "json_tools_builder.h"
 #include "json_flattener.h"
 #include "memory_pool.h"
+#include "../include/regex_engine.h"
 
 #define INITIAL_OPERATION_CAPACITY 16
 #define STRING_POOL_INITIAL_SIZE 4096
@@ -12,38 +13,7 @@
 // static size_t g_string_pool_size = 0;
 // static size_t g_string_pool_used = 0;
 
-// SAFE: Custom pattern matching to replace problematic regex
-static bool safe_pattern_match(const char* text, const char* pattern) {
-    if (!text || !pattern) return false;
 
-    size_t pattern_len = strlen(pattern);
-    size_t text_len = strlen(text);
-
-    // Handle common regex patterns safely
-    if (pattern_len > 0 && pattern[0] == '^') {
-        // Pattern starts with ^ - match beginning of string
-        const char* actual_pattern = pattern + 1;
-        size_t actual_len = pattern_len - 1;
-        if (actual_len > 0 && actual_pattern[actual_len - 1] == '$') {
-            // Pattern is ^...$ - exact match
-            actual_len--;
-            return (text_len == actual_len && strncmp(text, actual_pattern, actual_len) == 0);
-        } else {
-            // Pattern is ^... - starts with
-            return (text_len >= actual_len && strncmp(text, actual_pattern, actual_len) == 0);
-        }
-    } else if (pattern_len > 0 && pattern[pattern_len - 1] == '$') {
-        // Pattern ends with $ - match end of string
-        size_t actual_len = pattern_len - 1;
-        if (text_len >= actual_len) {
-            return strncmp(text + text_len - actual_len, pattern, actual_len) == 0;
-        }
-        return false;
-    } else {
-        // Simple substring match
-        return strstr(text, pattern) != NULL;
-    }
-}
 
 // Builder lifecycle functions
 JsonToolsBuilder* json_tools_builder_create(void) {
@@ -193,8 +163,8 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
     // Performance optimization: Update operation mask for fast checking
     builder->operation_mask |= type;
 
-    // SAFE ALTERNATIVE: Use custom pattern matching instead of system regex
-    // This avoids all regex-related segfaults while providing similar functionality
+    // HIGH-PERFORMANCE: Compile regex using optimized regex engine
+    // This provides full regex functionality with maximum performance across platforms
     if ((type == OP_REPLACE_KEYS || type == OP_REPLACE_VALUES) && pattern) {
         // Validate pattern thoroughly
         size_t pattern_len = strlen(pattern);
@@ -202,10 +172,13 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
             op->regex_valid = false;
             op->compiled_regex = NULL;
         } else {
-            // Don't compile regex - use pattern directly for safe string matching
-            op->regex_valid = false;  // Force fallback to safe string matching
-            op->compiled_regex = NULL;
-            builder->has_regex_operations = false;  // Disable regex optimizations
+            // Compile regex using high-performance engine with optimizations
+            op->compiled_regex = regex_compile(pattern, REGEX_FLAG_OPTIMIZE);
+            op->regex_valid = (op->compiled_regex != NULL);
+
+            if (op->regex_valid) {
+                builder->has_regex_operations = true;  // Enable regex optimizations
+            }
         }
     } else {
         op->regex_valid = false;
@@ -228,8 +201,7 @@ void clear_operations(JsonToolsBuilder* builder) {
         }
         // Clean up pre-compiled regex
         if (builder->operations[i].compiled_regex) {
-            regfree(builder->operations[i].compiled_regex);
-            free(builder->operations[i].compiled_regex);
+            regex_free(builder->operations[i].compiled_regex);
         }
     }
     
@@ -439,30 +411,33 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
     for (size_t i = 0; i < operation_count; i++) {
         if (operations[i].type == OP_REPLACE_KEYS && operations[i].replacement) {
             if (operations[i].regex_valid && operations[i].compiled_regex) {
-                // ULTRA-SAFE: Regex execution with comprehensive error checking
+                // HIGH-PERFORMANCE: Regex execution using optimized engine
                 if (result && strlen(result) < 10000) {  // Prevent regex on huge strings
-                    int regex_result;
-                    // Use a timeout-like approach by checking string length
-                    regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
-                    if (regex_result == 0) {
-                        char* new_result = portable_strdup(operations[i].replacement);
-                        if (new_result) {
+                    if (regex_test(operations[i].compiled_regex, result)) {
+                        regex_replace_result_t replace_result = regex_replace_first(
+                            operations[i].compiled_regex, result, operations[i].replacement);
+                        if (replace_result.success && replace_result.result) {
                             free(result);
-                            result = new_result;
+                            result = replace_result.result;
                             break;  // Apply first matching replacement
                         }
                     }
-                    // If regex_result != 0, just continue to next operation
+                    // If no match, continue to next operation
                 }
             } else if (operations[i].pattern) {
-                // ENHANCED FALLBACK: Smart pattern matching for common regex patterns
-                if (result && safe_pattern_match(result, operations[i].pattern)) {
-                    char* new_result = portable_strdup(operations[i].replacement);
-                    if (new_result) {
+                // FALLBACK: Create temporary regex for uncompiled patterns
+                regex_engine_t* temp_regex = regex_compile(operations[i].pattern, REGEX_FLAG_OPTIMIZE);
+                if (temp_regex && result && regex_test(temp_regex, result)) {
+                    regex_replace_result_t replace_result = regex_replace_first(temp_regex, result, operations[i].replacement);
+                    if (replace_result.success && replace_result.result) {
                         free(result);
-                        result = new_result;
+                        result = replace_result.result;
+                        regex_free(temp_regex);
                         break;  // Apply first matching replacement
                     }
+                }
+                if (temp_regex) {
+                    regex_free(temp_regex);
                 }
             }
         }
@@ -480,30 +455,33 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
     for (size_t i = 0; i < operation_count; i++) {
         if (operations[i].type == OP_REPLACE_VALUES && operations[i].replacement) {
             if (operations[i].regex_valid && operations[i].compiled_regex) {
-                // ULTRA-SAFE: Regex execution with comprehensive error checking
+                // HIGH-PERFORMANCE: Regex execution using optimized engine
                 if (result && strlen(result) < 10000) {  // Prevent regex on huge strings
-                    int regex_result;
-                    // Use a timeout-like approach by checking string length
-                    regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
-                    if (regex_result == 0) {
-                        char* new_result = portable_strdup(operations[i].replacement);
-                        if (new_result) {
+                    if (regex_test(operations[i].compiled_regex, result)) {
+                        regex_replace_result_t replace_result = regex_replace_first(
+                            operations[i].compiled_regex, result, operations[i].replacement);
+                        if (replace_result.success && replace_result.result) {
                             free(result);
-                            result = new_result;
+                            result = replace_result.result;
                             break;  // Apply first matching replacement
                         }
                     }
-                    // If regex_result != 0, just continue to next operation
+                    // If no match, continue to next operation
                 }
             } else if (operations[i].pattern) {
-                // ENHANCED FALLBACK: Smart pattern matching for common regex patterns
-                if (result && safe_pattern_match(result, operations[i].pattern)) {
-                    char* new_result = portable_strdup(operations[i].replacement);
-                    if (new_result) {
+                // FALLBACK: Create temporary regex for uncompiled patterns
+                regex_engine_t* temp_regex = regex_compile(operations[i].pattern, REGEX_FLAG_OPTIMIZE);
+                if (temp_regex && result && regex_test(temp_regex, result)) {
+                    regex_replace_result_t replace_result = regex_replace_first(temp_regex, result, operations[i].replacement);
+                    if (replace_result.success && replace_result.result) {
                         free(result);
-                        result = new_result;
+                        result = replace_result.result;
+                        regex_free(temp_regex);
                         break;  // Apply first matching replacement
                     }
+                }
+                if (temp_regex) {
+                    regex_free(temp_regex);
                 }
             }
         }
