@@ -51,9 +51,29 @@ jobs:
         cd py-lib
         python -c "
         import cjson_tools
+        from cjson_tools import JsonToolsBuilder
         import json
-        
-        data = {'test': 'data'}
+
+        # Test individual functions
+        data = {'test': 'data', 'nested': {'value': 123}}
         result = cjson_tools.flatten_json(json.dumps(data))
-        print('✅ Python test passed:', result)
+        print('✅ Individual function test passed:', result)
+
+        # Test JsonToolsBuilder
+        builder_result = (JsonToolsBuilder()
+            .add_json({'old_key': 'old_value', 'empty': '', 'null_field': None})
+            .remove_empty_strings()
+            .remove_nulls()
+            .replace_keys(r'^old_', 'new_')
+            .build())
+        print('✅ JsonToolsBuilder test passed:', builder_result)
+
+        # Test JsonToolsBuilder with flattening
+        flatten_result = (JsonToolsBuilder()
+            .add_json({'nested': {'deep': {'value': 'test'}}})
+            .flatten()
+            .build())
+        print('✅ JsonToolsBuilder flattening test passed:', flatten_result)
+
+        print('🎉 All basic tests passed!')
         "

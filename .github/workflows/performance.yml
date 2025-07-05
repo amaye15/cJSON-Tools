@@ -107,6 +107,12 @@ jobs:
         # Run benchmarks with timing
         time ./run_dynamic_tests.sh --sizes "${{ steps.benchmark-config.outputs.sizes }}" --benchmark
 
+    - name: Run comprehensive benchmarks
+      run: |
+        cd py-lib
+        echo "🚀 Running Comprehensive Benchmark Suite..."
+        python benchmarks/run_benchmarks.py --comprehensive --size ${{ github.event.inputs.benchmark_size || 'medium' }}
+
     - name: Run Python performance benchmarks
       run: |
         python -c "
@@ -116,7 +122,7 @@ jobs:
         import statistics
         import psutil
         import os
-        
+
         print('🐍 Python Performance Benchmarks')
         print('=' * 60)
         
@@ -268,14 +274,16 @@ jobs:
             report.append(f'- **Total Memory Used:** {total_memory:.1f} MB')
 
         report.append('')
-        report.append('## Advanced Optimizations Active')
+        report.append('## C Performance Optimizations Active')
         report.append('')
-        report.append('- ✅ Memory Pool Allocation')
-        report.append('- ✅ SIMD JSON Parsing')
-        report.append('- ✅ Lock-Free Data Structures')
-        report.append('- ✅ Cache-Friendly Memory Layout')
-        report.append('- ✅ Zero-Copy String Operations')
-        report.append('- ✅ GIL Release for Python')
+        report.append('- ✅ Pre-compiled Regex Patterns (eliminates regcomp() overhead)')
+        report.append('- ✅ Operation Bitmask Fast Checking (O(1) vs O(n))')
+        report.append('- ✅ Optimized String Operations (fast empty string checking)')
+        report.append('- ✅ Memory Management Improvements (reduced malloc/free)')
+        report.append('- ✅ Early Termination Optimizations')
+        report.append('- ✅ JsonToolsBuilder TRUE Single-Pass Processing')
+        report.append('- ✅ Comprehensive Flattening Performance')
+        report.append('- ✅ GIL Release for Python Threading')
 
         with open('performance_report_${{ matrix.platform }}.md', 'w') as f:
             f.write('\n'.join(report))

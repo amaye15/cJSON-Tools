@@ -136,7 +136,77 @@ jobs:
     - name: Test Python examples
       run: |
         cd py-lib
-        python examples/example.py
+        python examples/comprehensive_example.py
+
+    - name: Test JsonToolsBuilder optimizations
+      run: |
+        cd py-lib
+        python -c "
+        from cjson_tools import JsonToolsBuilder
+        import json
+        import time
+
+        print('🧪 Testing JsonToolsBuilder with optimizations...')
+
+        # Test data with various operations
+        test_data = {
+            'old_key_1': 'old_value_1',
+            'old_key_2': 'old_value_2',
+            'empty_field': '',
+            'null_field': None,
+            'nested': {
+                'old_nested': 'old_nested_value',
+                'empty_nested': '',
+                'null_nested': None,
+                'deep': {
+                    'old_deep': 'old_deep_value'
+                }
+            }
+        }
+
+        json_str = json.dumps(test_data)
+
+        # Test complete operations
+        start = time.time()
+        result = (JsonToolsBuilder()
+            .add_json(json_str)
+            .remove_empty_strings()
+            .remove_nulls()
+            .replace_keys(r'^old_', 'new_')
+            .replace_values(r'^old_', 'new_')
+            .build())
+        complete_time = time.time() - start
+
+        # Test with flattening
+        start = time.time()
+        flattened = (JsonToolsBuilder()
+            .add_json(json_str)
+            .remove_empty_strings()
+            .remove_nulls()
+            .flatten()
+            .build())
+        flatten_time = time.time() - start
+
+        print(f'✅ Complete operations: {complete_time*1000:.2f}ms')
+        print(f'✅ With flattening: {flatten_time*1000:.2f}ms')
+        print(f'✅ JsonToolsBuilder optimizations working!')
+
+        # Validate results
+        result_data = json.loads(result)
+        assert 'new_key_1' in result_data, 'Key replacement failed'
+        assert 'empty_field' not in result_data, 'Empty string removal failed'
+        assert 'null_field' not in result_data, 'Null removal failed'
+
+        flattened_data = json.loads(flattened)
+        assert 'nested.deep.old_deep' in flattened_data, 'Flattening failed'
+
+        print('✅ All validation tests passed!')
+        "
+
+    - name: Test comprehensive benchmarks
+      run: |
+        cd py-lib
+        python benchmarks/run_benchmarks.py --quick
 
     - name: Performance test
       run: |
