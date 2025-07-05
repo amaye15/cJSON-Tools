@@ -1135,6 +1135,42 @@ python3 -m cProfile -o profile.stats examples/example.py
 python3 -c "import pstats; pstats.Stats('profile.stats').sort_stats('cumulative').print_stats(20)"
 ```
 
+## 🏁 Performance Benchmarks
+
+### Running Benchmarks
+
+To run performance benchmarks comparing single-pass vs multi-pass processing:
+
+```bash
+cd py-lib
+python benchmarks/benchmark.py [options]
+```
+
+**Options:**
+- `--sizes`: Batch sizes to benchmark (default: 10, 100, 1000, 10000)
+- `--runs`: Number of runs per benchmark (default: 3)
+- `--output`: Output file for results (default: benchmark_results.md)
+- `--plot`: Output file for plots (default: benchmark_results.png)
+
+**Example:**
+```bash
+python benchmarks/benchmark.py --sizes 10 100 1000 5000 --runs 5
+```
+
+### Key Performance Findings
+
+**JsonToolsBuilder Single-Pass vs Multi-Pass:**
+- **1.31x average speedup** with single-pass C implementation
+- **22.6% average performance improvement**
+- **Best improvement on medium datasets** (33.2% faster)
+- **Memory efficient** - single JSON tree traversal
+- **Cache friendly** - data stays in CPU cache
+
+**Batch Processing Recommendations:**
+- **Flattening**: Use batches of 10-1000 objects with multi-threading
+- **Schema Generation**: Use batches of 10-100 objects
+- **Large datasets**: Split into smaller batches for optimal performance
+
 ## 📄 License
 
 This project is open source and available under the MIT License.
