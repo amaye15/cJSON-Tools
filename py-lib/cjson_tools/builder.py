@@ -173,9 +173,7 @@ class JsonToolsBuilder:
         # Use the C builder for true single-pass processing
         try:
             result = _cjson_tools._builder_execute(
-                self._json_data,
-                self._operations,
-                self._pretty_print
+                self._json_data, self._operations, self._pretty_print
             )
             return result
         except Exception as e:
