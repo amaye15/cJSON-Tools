@@ -26,39 +26,47 @@ if not os.path.exists(c_lib_src) or not os.path.exists(c_lib_include):
 # Environment Detection and Build Configuration
 # ============================================================================
 
+
 def detect_build_environment():
     """Detect the build environment and return appropriate build tier."""
     # Check for CI/CD environments
     ci_indicators = [
-        'CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'TRAVIS',
-        'CIRCLECI', 'JENKINS_URL', 'BUILDKITE', 'GITLAB_CI'
+        "CI",
+        "CONTINUOUS_INTEGRATION",
+        "GITHUB_ACTIONS",
+        "TRAVIS",
+        "CIRCLECI",
+        "JENKINS_URL",
+        "BUILDKITE",
+        "GITLAB_CI",
     ]
 
     if any(os.environ.get(var) for var in ci_indicators):
-        return 'ci'
+        return "ci"
 
     # Check for container environments
-    container_indicators = [
-        'CONTAINER', 'DOCKER_CONTAINER', 'KUBERNETES_SERVICE_HOST'
-    ]
+    container_indicators = ["CONTAINER", "DOCKER_CONTAINER", "KUBERNETES_SERVICE_HOST"]
 
     if any(os.environ.get(var) for var in container_indicators):
-        return 'container'
+        return "container"
 
     # Check for act (local GitHub Actions runner)
-    if os.environ.get('ACT'):
-        return 'act'
+    if os.environ.get("ACT"):
+        return "act"
 
     # Check if we're in a virtual environment or conda environment
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        return 'venv'
+    if hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    ):
+        return "venv"
 
-    return 'native'
+    return "native"
+
 
 def get_build_tier():
     """Get the appropriate build tier based on environment."""
     # Allow explicit override
-    tier = os.environ.get('BUILD_TIER')
+    tier = os.environ.get("BUILD_TIER")
     if tier:
         try:
             return int(tier)
@@ -68,11 +76,12 @@ def get_build_tier():
     env = detect_build_environment()
 
     # Conservative tier for CI/containers
-    if env in ['ci', 'container', 'act']:
+    if env in ["ci", "container", "act"]:
         return 1
 
     # Moderate tier for virtual environments and native (safer default for Python builds)
     return 2
+
 
 # Get build configuration
 build_env = detect_build_environment()
@@ -148,11 +157,7 @@ else:
 
     elif build_tier == 2:
         # Moderate: Balanced performance
-        extra_compile_args.extend([
-            "-O3",
-            "-funroll-loops",
-            "-fomit-frame-pointer"
-        ])
+        extra_compile_args.extend(["-O3", "-funroll-loops", "-fomit-frame-pointer"])
 
         # Safe architecture-specific optimizations
         if platform.machine() == "x86_64":
@@ -169,18 +174,22 @@ else:
 
     elif build_tier == 3:
         # Aggressive: Native optimization (only for explicit native builds)
-        extra_compile_args.extend([
-            "-O3",
-            "-funroll-loops",
-            "-fomit-frame-pointer",
-            "-finline-functions",
-            "-ffast-math",
-            "-ftree-vectorize"
-        ])
+        extra_compile_args.extend(
+            [
+                "-O3",
+                "-funroll-loops",
+                "-fomit-frame-pointer",
+                "-finline-functions",
+                "-ffast-math",
+                "-ftree-vectorize",
+            ]
+        )
 
         # Native architecture optimizations
         if platform.machine() == "x86_64":
-            extra_compile_args.extend(["-march=native", "-mtune=native", "-msse4.2", "-mavx2"])
+            extra_compile_args.extend(
+                ["-march=native", "-mtune=native", "-msse4.2", "-mavx2"]
+            )
         elif platform.machine() in ["aarch64", "arm64"]:
             if sys.platform == "darwin":
                 extra_compile_args.extend(["-mcpu=apple-a14"])
