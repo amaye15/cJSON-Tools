@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <regex.h>
 #include "cjson/cJSON.h"
 
 #ifdef __cplusplus
@@ -12,23 +14,27 @@ extern "C" {
 // Forward declaration
 typedef struct JsonToolsBuilder JsonToolsBuilder;
 
-// Operation types for the builder
+// Operation types for the builder (using bit flags for fast checking)
 typedef enum {
-    OP_REMOVE_EMPTY_STRINGS,
-    OP_REMOVE_NULLS,
-    OP_REPLACE_KEYS,
-    OP_REPLACE_VALUES,
-    OP_FLATTEN
+    OP_REMOVE_EMPTY_STRINGS = 1,
+    OP_REMOVE_NULLS = 2,
+    OP_REPLACE_KEYS = 4,
+    OP_REPLACE_VALUES = 8,
+    OP_FLATTEN = 16
 } OperationType;
 
-// Structure to hold operation parameters
+// Structure to hold operation parameters with performance optimizations
 typedef struct {
     OperationType type;
-    char* pattern;      // For regex operations
-    char* replacement;  // For regex operations
+    char* pattern;              // For regex operations
+    char* replacement;          // For regex operations
+    regex_t* compiled_regex;    // Pre-compiled regex for performance
+    bool regex_valid;           // Whether regex compilation succeeded
+    size_t pattern_len;         // Cached pattern length
+    size_t replacement_len;     // Cached replacement length
 } BuilderOperation;
 
-// Main builder structure
+// Main builder structure with performance optimizations
 struct JsonToolsBuilder {
     cJSON* json_data;                    // The JSON data being processed
     BuilderOperation* operations;        // Array of operations to perform
@@ -36,6 +42,11 @@ struct JsonToolsBuilder {
     size_t operation_capacity;          // Capacity of operations array
     bool pretty_print;                  // Whether to pretty print output
     char* error_message;                // Last error message
+
+    // Performance optimization fields
+    uint32_t operation_mask;            // Bitmask of operation types for fast checking
+    bool has_regex_operations;          // Whether any regex operations are present
+    size_t estimated_string_pool_size;  // Estimated size for string pool allocation
 };
 
 // Builder lifecycle functions
@@ -75,7 +86,12 @@ char* execute_operations(JsonToolsBuilder* builder);
 cJSON* process_json_single_pass(cJSON* json, BuilderOperation* operations, size_t operation_count);
 void process_json_node_recursive(cJSON* node, BuilderOperation* operations, size_t operation_count);
 
-// Operation-specific processors
+// Optimized processing functions
+void process_json_node_recursive_fast(cJSON* node, BuilderOperation* operations, size_t operation_count, uint32_t operation_mask);
+bool should_remove_empty_string_fast(cJSON* item, uint32_t operation_mask);
+bool should_remove_null_fast(cJSON* item, uint32_t operation_mask);
+
+// Operation-specific processors (legacy)
 bool should_remove_empty_string(cJSON* item, BuilderOperation* operations, size_t operation_count);
 bool should_remove_null(cJSON* item, BuilderOperation* operations, size_t operation_count);
 char* apply_key_replacements(const char* key, BuilderOperation* operations, size_t operation_count);
