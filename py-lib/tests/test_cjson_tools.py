@@ -267,7 +267,7 @@ class TestCJsonTools(unittest.TestCase):
             "session.pageTimesInMs.AboutPage": 2000,
             "session.pageTimesInMs.ContactPage": 1200,
             "user.name": "John",
-            "user.email": "john@example.com"
+            "user.email": "john@example.com",
         }
         test_json = json.dumps(test_data)
 
@@ -275,16 +275,12 @@ class TestCJsonTools(unittest.TestCase):
         result = replace_keys(
             test_json,
             r"^session\.pageTimesInMs\..*$",
-            "session.pageTimesInMs.PrezzePage"
+            "session.pageTimesInMs.PrezzePage",
         )
         result_data = json.loads(result)
 
         # All session.pageTimesInMs.* keys should be replaced
-        expected_keys = {
-            "session.pageTimesInMs.PrezzePage",
-            "user.name",
-            "user.email"
-        }
+        expected_keys = {"session.pageTimesInMs.PrezzePage", "user.name", "user.email"}
         self.assertEqual(set(result_data.keys()), expected_keys)
 
         # Values should be preserved (though multiple keys will have same name)
@@ -299,21 +295,14 @@ class TestCJsonTools(unittest.TestCase):
                 "session.timing.load": 100,
                 "session.timing.render": 200,
                 "user.action.click": 5,
-                "user.action.scroll": 10
+                "user.action.scroll": 10,
             },
-            "config": {
-                "session.setting.theme": "dark",
-                "user.preference.lang": "en"
-            }
+            "config": {"session.setting.theme": "dark", "user.preference.lang": "en"},
         }
         test_json = json.dumps(test_data)
 
         # Replace all session.* keys with session.unified
-        result = replace_keys(
-            test_json,
-            r"^session\..*$",
-            "session.unified"
-        )
+        result = replace_keys(test_json, r"^session\..*$", "session.unified")
         result_data = json.loads(result)
 
         # Check that nested session keys were replaced
@@ -340,35 +329,23 @@ class TestCJsonTools(unittest.TestCase):
 
         # Pretty print option
         result_pretty = replace_keys(
-            test_data,
-            r"^user\..*$",
-            "user.info",
-            pretty_print=True
+            test_data, r"^user\..*$", "user.info", pretty_print=True
         )
-        self.assertIn("\n", result_pretty)  # Should contain newlines for pretty printing
+        self.assertIn(
+            "\n", result_pretty
+        )  # Should contain newlines for pretty printing
 
     def test_replace_values(self):
         """Test replace_values function"""
         # Basic value replacement
         test_data = {
-            "user": {
-                "status": "old_active",
-                "role": "old_admin",
-                "name": "John"
-            },
-            "config": {
-                "theme": "old_dark",
-                "language": "en"
-            }
+            "user": {"status": "old_active", "role": "old_admin", "name": "John"},
+            "config": {"theme": "old_dark", "language": "en"},
         }
         test_json = json.dumps(test_data)
 
         # Replace all values starting with "old_" with "new_value"
-        result = replace_values(
-            test_json,
-            r"^old_.*$",
-            "new_value"
-        )
+        result = replace_values(test_json, r"^old_.*$", "new_value")
         result_data = json.loads(result)
 
         # All old_* values should be replaced
@@ -384,30 +361,15 @@ class TestCJsonTools(unittest.TestCase):
         """Test replace_values with nested objects and arrays"""
         test_data = {
             "users": [
-                {
-                    "name": "John",
-                    "status": "temp_active",
-                    "role": "temp_user"
-                },
-                {
-                    "name": "Jane",
-                    "status": "temp_inactive",
-                    "role": "admin"
-                }
+                {"name": "John", "status": "temp_active", "role": "temp_user"},
+                {"name": "Jane", "status": "temp_inactive", "role": "admin"},
             ],
-            "settings": {
-                "mode": "temp_debug",
-                "version": "1.0"
-            }
+            "settings": {"mode": "temp_debug", "version": "1.0"},
         }
         test_json = json.dumps(test_data)
 
         # Replace all values starting with "temp_" with "permanent"
-        result = replace_values(
-            test_json,
-            r"^temp_.*$",
-            "permanent"
-        )
+        result = replace_values(test_json, r"^temp_.*$", "permanent")
         result_data = json.loads(result)
 
         # Check that nested temp_ values were replaced
@@ -442,7 +404,7 @@ class TestCJsonTools(unittest.TestCase):
             "age": 30,
             "active": True,
             "score": 95.5,
-            "data": None
+            "data": None,
         }
         test_json_mixed = json.dumps(test_data_mixed)
         result = replace_values(test_json_mixed, r"^temp_.*$", "replacement")
@@ -457,12 +419,11 @@ class TestCJsonTools(unittest.TestCase):
 
         # Pretty print option
         result_pretty = replace_values(
-            test_json_mixed,
-            r"^temp_.*$",
-            "replacement",
-            pretty_print=True
+            test_json_mixed, r"^temp_.*$", "replacement", pretty_print=True
         )
-        self.assertIn("\n", result_pretty)  # Should contain newlines for pretty printing
+        self.assertIn(
+            "\n", result_pretty
+        )  # Should contain newlines for pretty printing
 
     def test_version(self):
         """Test that version is available."""
