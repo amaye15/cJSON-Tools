@@ -21,7 +21,7 @@ A high-performance C toolkit for transforming and analyzing JSON data with Pytho
 8. **Performance Optimized**: SIMD instructions, memory pools, and cache-friendly algorithms
 9. **Python Bindings**: Use the library directly from Python with native C performance
 
-## 🚀 Quick Start
+## 🚀 Quick Start Guide
 
 ### Python (Recommended)
 ```bash
