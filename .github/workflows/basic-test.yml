@@ -87,4 +87,35 @@ jobs:
         print('✅ Remove operations test passed:', result)
         "
 
-        echo "🎉 All basic tests passed!"
+        # Test regex operations carefully
+        python -c "
+        from cjson_tools import JsonToolsBuilder
+
+        # Test simple regex replacement
+        try:
+            result = (JsonToolsBuilder()
+                .add_json({'old_key': 'old_value'})
+                .replace_keys(r'old_', 'new_')
+                .build())
+            print('✅ Regex replace_keys test passed:', result)
+        except Exception as e:
+            print('❌ Regex replace_keys failed:', e)
+            raise
+        "
+
+        # Test flattening
+        python -c "
+        from cjson_tools import JsonToolsBuilder
+
+        try:
+            result = (JsonToolsBuilder()
+                .add_json({'nested': {'deep': {'value': 'test'}}})
+                .flatten()
+                .build())
+            print('✅ Flattening test passed:', result)
+        except Exception as e:
+            print('❌ Flattening failed:', e)
+            raise
+        "
+
+        echo "🎉 All tests passed including regex operations!"
