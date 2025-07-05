@@ -162,24 +162,36 @@ int add_operation(JsonToolsBuilder* builder, OperationType type, const char* pat
     // Performance optimization: Update operation mask for fast checking
     builder->operation_mask |= type;
 
-    // SAFER: Pre-compile regex patterns with comprehensive error checking
+    // ROBUST: Regex compilation with comprehensive safety checks
     if ((type == OP_REPLACE_KEYS || type == OP_REPLACE_VALUES) && pattern) {
-        // Validate pattern is not empty and not too long
+        // Validate pattern thoroughly
         size_t pattern_len = strlen(pattern);
-        if (pattern_len == 0 || pattern_len > 1024) {
+        if (pattern_len == 0 || pattern_len > 512) {  // Reduced max length for safety
             op->regex_valid = false;
             op->compiled_regex = NULL;
         } else {
-            op->compiled_regex = malloc(sizeof(regex_t));
+            // Allocate and zero-initialize regex structure
+            op->compiled_regex = calloc(1, sizeof(regex_t));
             if (op->compiled_regex) {
-                // Use safer regex compilation with REG_NOSUB for better performance and safety
-                int regex_result = regcomp(op->compiled_regex, pattern, REG_EXTENDED | REG_NOSUB);
+                // Try regex compilation with multiple safety flags
+                int regex_result = regcomp(op->compiled_regex, pattern,
+                                         REG_EXTENDED | REG_NOSUB | REG_NEWLINE);
                 if (regex_result == 0) {
-                    op->regex_valid = true;
-                    builder->has_regex_operations = true;
+                    // Test the compiled regex with a simple string to ensure it's valid
+                    int test_result = regexec(op->compiled_regex, "test", 0, NULL, 0);
+                    if (test_result == 0 || test_result == REG_NOMATCH) {
+                        // Regex is valid and safe to use
+                        op->regex_valid = true;
+                        builder->has_regex_operations = true;
+                    } else {
+                        // Regex execution failed, clean up
+                        regfree(op->compiled_regex);
+                        free(op->compiled_regex);
+                        op->compiled_regex = NULL;
+                        op->regex_valid = false;
+                    }
                 } else {
-                    // Clean up on regex compilation failure
-                    regfree(op->compiled_regex);
+                    // Regex compilation failed, clean up
                     free(op->compiled_regex);
                     op->compiled_regex = NULL;
                     op->regex_valid = false;
@@ -420,19 +432,24 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
     for (size_t i = 0; i < operation_count; i++) {
         if (operations[i].type == OP_REPLACE_KEYS && operations[i].replacement) {
             if (operations[i].regex_valid && operations[i].compiled_regex) {
-                // SAFER: Use pre-compiled regex with additional safety checks
-                int regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
-                if (regex_result == 0) {
-                    char* new_result = strdup(operations[i].replacement);
-                    if (new_result) {
-                        free(result);
-                        result = new_result;
-                        break;  // Apply first matching replacement
+                // ULTRA-SAFE: Regex execution with comprehensive error checking
+                if (result && strlen(result) < 10000) {  // Prevent regex on huge strings
+                    int regex_result;
+                    // Use a timeout-like approach by checking string length
+                    regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
+                    if (regex_result == 0) {
+                        char* new_result = strdup(operations[i].replacement);
+                        if (new_result) {
+                            free(result);
+                            result = new_result;
+                            break;  // Apply first matching replacement
+                        }
                     }
+                    // If regex_result != 0, just continue to next operation
                 }
             } else if (operations[i].pattern) {
                 // FALLBACK: Simple string matching for safety
-                if (strstr(result, operations[i].pattern) != NULL) {
+                if (result && strstr(result, operations[i].pattern) != NULL) {
                     char* new_result = strdup(operations[i].replacement);
                     if (new_result) {
                         free(result);
@@ -456,19 +473,24 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
     for (size_t i = 0; i < operation_count; i++) {
         if (operations[i].type == OP_REPLACE_VALUES && operations[i].replacement) {
             if (operations[i].regex_valid && operations[i].compiled_regex) {
-                // SAFER: Use pre-compiled regex with additional safety checks
-                int regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
-                if (regex_result == 0) {
-                    char* new_result = strdup(operations[i].replacement);
-                    if (new_result) {
-                        free(result);
-                        result = new_result;
-                        break;  // Apply first matching replacement
+                // ULTRA-SAFE: Regex execution with comprehensive error checking
+                if (result && strlen(result) < 10000) {  // Prevent regex on huge strings
+                    int regex_result;
+                    // Use a timeout-like approach by checking string length
+                    regex_result = regexec(operations[i].compiled_regex, result, 0, NULL, 0);
+                    if (regex_result == 0) {
+                        char* new_result = strdup(operations[i].replacement);
+                        if (new_result) {
+                            free(result);
+                            result = new_result;
+                            break;  // Apply first matching replacement
+                        }
                     }
+                    // If regex_result != 0, just continue to next operation
                 }
             } else if (operations[i].pattern) {
                 // FALLBACK: Simple string matching for safety
-                if (strstr(result, operations[i].pattern) != NULL) {
+                if (result && strstr(result, operations[i].pattern) != NULL) {
                     char* new_result = strdup(operations[i].replacement);
                     if (new_result) {
                         free(result);

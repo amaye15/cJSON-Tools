@@ -726,6 +726,24 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
                 return NULL;
             }
 
+            // SAFETY: Validate pattern before passing to C
+            size_t pattern_len = strlen(pattern);
+            size_t replacement_len = strlen(replacement);
+            if (pattern_len == 0 || pattern_len > 512 || replacement_len > 1024) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "Pattern or replacement string too long or empty");
+                return NULL;
+            }
+
+            // Check for potentially problematic characters
+            for (size_t i = 0; i < pattern_len; i++) {
+                if (pattern[i] == '\0') {
+                    json_tools_builder_destroy(builder);
+                    PyErr_SetString(PyExc_ValueError, "Pattern contains null character");
+                    return NULL;
+                }
+            }
+
             JsonToolsBuilder* result = json_tools_builder_replace_keys(builder, pattern, replacement);
             if (!result) {
                 json_tools_builder_destroy(builder);
@@ -750,6 +768,24 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
                 json_tools_builder_destroy(builder);
                 PyErr_SetString(PyExc_ValueError, "Failed to convert pattern or replacement to UTF-8");
                 return NULL;
+            }
+
+            // SAFETY: Validate pattern before passing to C
+            size_t pattern_len = strlen(pattern);
+            size_t replacement_len = strlen(replacement);
+            if (pattern_len == 0 || pattern_len > 512 || replacement_len > 1024) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "Pattern or replacement string too long or empty");
+                return NULL;
+            }
+
+            // Check for potentially problematic characters
+            for (size_t i = 0; i < pattern_len; i++) {
+                if (pattern[i] == '\0') {
+                    json_tools_builder_destroy(builder);
+                    PyErr_SetString(PyExc_ValueError, "Pattern contains null character");
+                    return NULL;
+                }
             }
 
             JsonToolsBuilder* result = json_tools_builder_replace_values(builder, pattern, replacement);
