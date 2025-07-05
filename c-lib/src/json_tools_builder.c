@@ -8,30 +8,11 @@
 #define INITIAL_OPERATION_CAPACITY 16
 #define STRING_POOL_INITIAL_SIZE 4096
 
+// Disabled string pool optimization to prevent memory issues
 // Performance optimization: String pool for reduced allocations
-static char* g_string_pool = NULL;
-static size_t g_string_pool_size = 0;
-static size_t g_string_pool_used = 0;
-
-// Performance optimization: Initialize string pool
-static void init_string_pool(size_t initial_size) {
-    if (!g_string_pool) {
-        g_string_pool = malloc(initial_size);
-        if (g_string_pool) {
-            g_string_pool_size = initial_size;
-            g_string_pool_used = 0;
-        }
-    }
-}
-
-// Performance optimization: Allocate from string pool (FIXED)
-static char* pool_strdup(const char* str) {
-    if (!str) return NULL;
-
-    // For now, disable pool allocation to fix memory issues
-    // TODO: Implement proper pool with reference counting
-    return strdup(str);
-}
+// static char* g_string_pool = NULL;
+// static size_t g_string_pool_size = 0;
+// static size_t g_string_pool_used = 0;
 
 // Builder lifecycle functions
 JsonToolsBuilder* json_tools_builder_create(void) {
@@ -55,9 +36,6 @@ JsonToolsBuilder* json_tools_builder_create(void) {
     builder->has_regex_operations = false;
     builder->estimated_string_pool_size = STRING_POOL_INITIAL_SIZE;
 
-    // Initialize string pool for better memory performance
-    init_string_pool(STRING_POOL_INITIAL_SIZE);
-
     return builder;
 }
 
@@ -76,15 +54,6 @@ void json_tools_builder_destroy(JsonToolsBuilder* builder) {
     }
 
     free(builder);
-
-    // Clean up global string pool when last builder is destroyed
-    // Note: In a real implementation, you'd want reference counting
-    if (g_string_pool) {
-        free(g_string_pool);
-        g_string_pool = NULL;
-        g_string_pool_size = 0;
-        g_string_pool_used = 0;
-    }
 }
 
 // JSON input
@@ -433,11 +402,15 @@ char* apply_key_replacements(const char* key, BuilderOperation* operations, size
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
-        if (operations[i].type == OP_REPLACE_KEYS && operations[i].regex_valid && operations[i].compiled_regex) {
+        if (operations[i].type == OP_REPLACE_KEYS &&
+            operations[i].regex_valid &&
+            operations[i].compiled_regex &&
+            operations[i].replacement) {
             // MAJOR OPTIMIZATION: Use pre-compiled regex instead of regcomp() every time
             if (regexec(operations[i].compiled_regex, result, 0, NULL, 0) == 0) {
                 free(result);
                 result = strdup(operations[i].replacement);
+                if (!result) return NULL;  // Handle strdup failure
                 break;  // Apply first matching replacement
             }
         }
@@ -453,11 +426,15 @@ char* apply_value_replacements(const char* value, BuilderOperation* operations, 
     if (!result) return NULL;
 
     for (size_t i = 0; i < operation_count; i++) {
-        if (operations[i].type == OP_REPLACE_VALUES && operations[i].regex_valid && operations[i].compiled_regex) {
+        if (operations[i].type == OP_REPLACE_VALUES &&
+            operations[i].regex_valid &&
+            operations[i].compiled_regex &&
+            operations[i].replacement) {
             // MAJOR OPTIMIZATION: Use pre-compiled regex instead of regcomp() every time
             if (regexec(operations[i].compiled_regex, result, 0, NULL, 0) == 0) {
                 free(result);
                 result = strdup(operations[i].replacement);
+                if (!result) return NULL;  // Handle strdup failure
                 break;  // Apply first matching replacement
             }
         }

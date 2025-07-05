@@ -650,10 +650,17 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    // Create builder
+    // Create builder with error checking
     JsonToolsBuilder* builder = json_tools_builder_create();
     if (!builder) {
         PyErr_SetString(PyExc_MemoryError, "Failed to create JsonToolsBuilder");
+        return NULL;
+    }
+
+    // Verify builder was created properly
+    if (builder->operations == NULL) {
+        json_tools_builder_destroy(builder);
+        PyErr_SetString(PyExc_MemoryError, "Builder operations array not initialized");
         return NULL;
     }
 
@@ -686,9 +693,19 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
         const char* op_type = PyUnicode_AsUTF8(type_obj);
 
         if (strcmp(op_type, "remove_empty_strings") == 0) {
-            json_tools_builder_remove_empty_strings(builder);
+            JsonToolsBuilder* result = json_tools_builder_remove_empty_strings(builder);
+            if (!result) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_RuntimeError, "Failed to add remove_empty_strings operation");
+                return NULL;
+            }
         } else if (strcmp(op_type, "remove_nulls") == 0) {
-            json_tools_builder_remove_nulls(builder);
+            JsonToolsBuilder* result = json_tools_builder_remove_nulls(builder);
+            if (!result) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_RuntimeError, "Failed to add remove_nulls operation");
+                return NULL;
+            }
         } else if (strcmp(op_type, "replace_keys") == 0) {
             PyObject* pattern_obj = PyDict_GetItemString(op, "pattern");
             PyObject* replacement_obj = PyDict_GetItemString(op, "replacement");
@@ -702,7 +719,19 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
 
             const char* pattern = PyUnicode_AsUTF8(pattern_obj);
             const char* replacement = PyUnicode_AsUTF8(replacement_obj);
-            json_tools_builder_replace_keys(builder, pattern, replacement);
+
+            if (!pattern || !replacement) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "Failed to convert pattern or replacement to UTF-8");
+                return NULL;
+            }
+
+            JsonToolsBuilder* result = json_tools_builder_replace_keys(builder, pattern, replacement);
+            if (!result) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_RuntimeError, "Failed to add replace_keys operation");
+                return NULL;
+            }
         } else if (strcmp(op_type, "replace_values") == 0) {
             PyObject* pattern_obj = PyDict_GetItemString(op, "pattern");
             PyObject* replacement_obj = PyDict_GetItemString(op, "replacement");
@@ -716,9 +745,26 @@ static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
 
             const char* pattern = PyUnicode_AsUTF8(pattern_obj);
             const char* replacement = PyUnicode_AsUTF8(replacement_obj);
-            json_tools_builder_replace_values(builder, pattern, replacement);
+
+            if (!pattern || !replacement) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_ValueError, "Failed to convert pattern or replacement to UTF-8");
+                return NULL;
+            }
+
+            JsonToolsBuilder* result = json_tools_builder_replace_values(builder, pattern, replacement);
+            if (!result) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_RuntimeError, "Failed to add replace_values operation");
+                return NULL;
+            }
         } else if (strcmp(op_type, "flatten") == 0) {
-            json_tools_builder_flatten(builder);
+            JsonToolsBuilder* result = json_tools_builder_flatten(builder);
+            if (!result) {
+                json_tools_builder_destroy(builder);
+                PyErr_SetString(PyExc_RuntimeError, "Failed to add flatten operation");
+                return NULL;
+            }
         } else {
             json_tools_builder_destroy(builder);
             PyErr_Format(PyExc_ValueError, "Unknown operation type: %s", op_type);
