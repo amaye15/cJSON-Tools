@@ -121,14 +121,7 @@ jobs:
         echo "Sizes: ${{ steps.benchmark-config.outputs.sizes }}"
         echo "Iterations: ${{ steps.benchmark-config.outputs.iterations }}"
 
-        # Run comprehensive performance tests
-        python3 scripts/performance_test.py \
-          --tiers 1,3 \
-          --sizes "${{ steps.benchmark-config.outputs.sizes }}" \
-          --iterations ${{ steps.benchmark-config.outputs.iterations }} \
-          --output performance_report_${{ matrix.platform }}.md
-
-        # Also run the original dynamic tests for compatibility
+        # Run the original dynamic tests for now (comprehensive script will be added later)
         cd c-lib/tests
         chmod +x run_dynamic_tests.sh
         time ./run_dynamic_tests.sh --sizes "${{ steps.benchmark-config.outputs.sizes }}" --benchmark
@@ -595,12 +588,7 @@ jobs:
         print('📊 Performance charts generated: performance_charts.png')
         "
 
-    - name: Upload performance reports
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-reports-${{ matrix.platform }}
-        path: performance_report_${{ matrix.platform }}.md
-        retention-days: 90
+
 
     - name: Upload performance charts
       uses: actions/upload-artifact@v4
