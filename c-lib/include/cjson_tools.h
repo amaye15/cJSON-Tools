@@ -240,18 +240,40 @@ typedef struct Task {
 } Task;
 
 /**
- * Thread pool structure
+ * Work-stealing queue structure
+ */
+typedef struct WorkStealingQueue {
+    Task* tasks;
+    _Alignas(CACHE_LINE_SIZE) volatile int head;
+    _Alignas(CACHE_LINE_SIZE) volatile int tail;
+    int capacity;
+    int mask;
+} WorkStealingQueue;
+
+/**
+ * Work-stealing pool structure
+ */
+typedef struct WorkStealingPool {
+    pthread_t* threads;
+    WorkStealingQueue* queues;
+    int num_threads;
+    volatile int shutdown;
+    _Alignas(CACHE_LINE_SIZE) volatile int global_task_count;
+} WorkStealingPool;
+
+/**
+ * Thread pool structure (with work-stealing support)
  */
 typedef struct {
-    pthread_t* threads;           // Array of worker threads
-    Task* task_queue;             // Queue of tasks to be executed
-    Task* task_queue_tail;        // Tail of the task queue for faster enqueuing
+    WorkStealingPool* ws_pool;    // Work-stealing pool for high performance
+    pthread_mutex_t mutex;        // Mutex for compatibility
+    pthread_cond_t cond;          // Condition variable for compatibility
+    pthread_cond_t idle_cond;     // Condition variable for idle threads
+    Task* task_queue;             // Queue of tasks (compatibility)
+    Task* task_queue_tail;        // Tail of the task queue (compatibility)
     int num_threads;              // Number of threads in the pool
     int active_threads;           // Number of currently active threads
     bool shutdown;                // Flag to indicate shutdown
-    pthread_mutex_t queue_mutex;  // Mutex to protect the task queue
-    pthread_cond_t queue_cond;    // Condition variable for task queue
-    pthread_cond_t idle_cond;     // Condition variable for idle threads
 } ThreadPool;
 
 // Thread pool functions
@@ -273,6 +295,7 @@ size_t get_task_queue_size(void);
  * Custom string duplication function (replacement for strdup)
  */
 char* my_strdup(const char* str) HOT_PATH;
+void my_strfree(char* str);
 
 /**
  * Reads a JSON file into a string
