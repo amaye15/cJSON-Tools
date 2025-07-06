@@ -9,6 +9,21 @@
 [![Downloads](https://img.shields.io/pypi/dm/cjson-tools.svg)](https://pypi.org/project/cjson-tools/)
 [![Documentation](https://img.shields.io/badge/docs-github%20pages-blue.svg)](https://amaye15.github.io/cJSON-Tools/)
 
+## 🎉 **STABLE RELEASE v1.9.0**
+
+**All GitHub Actions workflows passing!** ✅ (Updated: 2025-07-06)
+
+### ✅ **Complete CI/CD Pipeline Status:**
+- ✅ **Basic Test** - Core functionality validation
+- ✅ **Continuous Integration** - Cross-platform testing (Ubuntu, macOS, Python 3.8-3.12) + Code Quality & Security
+- ✅ **Build Tier Testing** - Multi-tier optimization builds + Cross-architecture (aarch64) validation
+- ✅ **Security & Vulnerability Testing** - Valgrind memory checks, AddressSanitizer, CodeQL analysis
+- ✅ **Performance Monitoring & Benchmarks** - Automated performance regression detection
+- ✅ **Documentation & Release** - Automated documentation generation and publishing
+- ✅ **Auto-format Code** - Automated code formatting with Black and isort
+
+---
+
 A high-performance C toolkit for transforming and analyzing JSON data with Python bindings. cJSON-Tools provides powerful tools for:
 
 1. **JSON Flattening**: Converts nested JSON structures into flat key-value pairs
