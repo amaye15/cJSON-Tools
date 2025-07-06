@@ -62,25 +62,30 @@ SRC_DIR = c-lib/src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-# Source files (including new optimization modules)
-SRCS = $(SRC_DIR)/json_tools.c \
-       $(SRC_DIR)/json_flattener.c \
-       $(SRC_DIR)/json_schema_generator.c \
-       $(SRC_DIR)/json_utils.c \
-       $(SRC_DIR)/thread_pool.c \
-       $(SRC_DIR)/cJSON.c \
-       $(SRC_DIR)/memory_pool.c \
-       $(SRC_DIR)/json_parser_simd.c \
-       $(SRC_DIR)/lockfree_queue.c
+# Source files (consolidated)
+SRCS = $(SRC_DIR)/cjson_tools.c \
+       $(SRC_DIR)/cJSON.c
+
+# Test source files
+TEST_SRCS = c-lib/tests/test_cjson_tools.c
 
 # Object files
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 
-# Executable
+# Test object files
+TEST_OBJS = $(patsubst c-lib/tests/%.c,$(OBJ_DIR)/%.o,$(TEST_SRCS))
+
+# Executables
 TARGET = $(BIN_DIR)/json_tools
+TEST_TARGET = $(BIN_DIR)/test_cjson_tools
 
 # Default target
 all: directories $(TARGET)
+
+# Test target
+test: directories $(TEST_TARGET)
+	@echo "Running tests..."
+	./$(TEST_TARGET)
 
 # Create directories
 directories:
@@ -90,8 +95,20 @@ directories:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Link object files
+# Compile test files
+$(OBJ_DIR)/%.o: c-lib/tests/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile cjson_tools.c without main function for tests
+$(OBJ_DIR)/cjson_tools_no_main.o: $(SRC_DIR)/cjson_tools.c
+	$(CC) $(CFLAGS) -DCJSON_TOOLS_NO_MAIN -c $< -o $@
+
+# Link object files for main executable
 $(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+# Link object files for test executable (using version without main)
+$(TEST_TARGET): $(TEST_OBJS) $(OBJ_DIR)/cjson_tools_no_main.o $(OBJ_DIR)/cJSON.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 # Clean up
@@ -119,7 +136,7 @@ debug: CFLAGS = -Wall -Wextra -std=c99 -g -O0 -DDEBUG -I./c-lib/include
 debug: LIBS = -pthread
 debug: directories $(TARGET)
 
-.PHONY: all directories clean install uninstall pgo debug format format-check lint dev-install setup-hooks
+.PHONY: all test directories clean install uninstall pgo debug format format-check lint dev-install setup-hooks
 
 # Python code formatting targets
 format:

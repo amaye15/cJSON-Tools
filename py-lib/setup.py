@@ -109,14 +109,8 @@ cjson_tools_module = Extension(
     "cjson_tools._cjson_tools",
     sources=[
         "cjson_tools/_cjson_tools.c",
+        os.path.join(c_lib_src, "cjson_tools.c"),  # Consolidated C file
         os.path.join(c_lib_src, "cJSON.c"),
-        os.path.join(c_lib_src, "json_flattener.c"),
-        os.path.join(c_lib_src, "json_schema_generator.c"),
-        os.path.join(c_lib_src, "json_utils.c"),
-        os.path.join(c_lib_src, "thread_pool.c"),
-        os.path.join(c_lib_src, "memory_pool.c"),
-        os.path.join(c_lib_src, "json_parser_simd.c"),
-        os.path.join(c_lib_src, "lockfree_queue.c"),
     ],
     include_dirs=[
         c_lib_include,
@@ -126,10 +120,12 @@ cjson_tools_module = Extension(
     extra_link_args=extra_link_args,
     define_macros=(
         [
-            ("_CRT_SECURE_NO_WARNINGS", None) if is_windows else ("_GNU_SOURCE", None),
+            ("_CRT_SECURE_NO_WARNINGS", None),
+            ("CJSON_TOOLS_NO_MAIN", None),  # Exclude main function
+        ] if is_windows else [
+            ("_GNU_SOURCE", None),
+            ("CJSON_TOOLS_NO_MAIN", None),  # Exclude main function
         ]
-        if is_windows
-        else None
     ),
 )
 
