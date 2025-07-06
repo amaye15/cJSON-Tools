@@ -140,34 +140,39 @@ jobs:
       with:
         platforms: ${{ matrix.arch }}
 
+    - name: Create Dockerfile for cross-architecture test
+      run: |
+        cat > Dockerfile.cross << 'EOF'
+        FROM ubuntu:22.04
+
+        # Install dependencies
+        RUN apt-get update && apt-get install -y \
+            build-essential \
+            python3 \
+            python3-pip \
+            python3-dev \
+            && rm -rf /var/lib/apt/lists/*
+
+        # Copy source code
+        COPY . /app
+        WORKDIR /app
+
+        # Test conservative build (Tier 1)
+        RUN make clean && BUILD_TIER=1 make
+
+        # Test basic functionality
+        RUN echo '{"test": "data"}' | ./bin/json_tools -f
+
+        # Test Python build
+        RUN cd py-lib && BUILD_TIER=1 python3 setup.py build_ext --inplace
+        EOF
+
     - name: Test build in emulated environment
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/${{ matrix.arch }}
-        dockerfile: |
-          FROM ubuntu:22.04
-          
-          # Install dependencies
-          RUN apt-get update && apt-get install -y \
-              build-essential \
-              python3 \
-              python3-pip \
-              python3-dev \
-              && rm -rf /var/lib/apt/lists/*
-          
-          # Copy source code
-          COPY . /app
-          WORKDIR /app
-          
-          # Test conservative build (Tier 1)
-          RUN make clean && BUILD_TIER=1 make
-          
-          # Test basic functionality
-          RUN echo '{"test": "data"}' | ./bin/json_tools -f
-          
-          # Test Python build
-          RUN cd py-lib && BUILD_TIER=1 python3 setup.py build_ext --inplace
+        file: ./Dockerfile.cross
         push: false
 
   # ============================================================================
