@@ -65,7 +65,7 @@ jobs:
         BUILD_TIER: ${{ matrix.tier }}
       run: |
         make clean
-        make
+        make all
         ls -la bin/
 
     - name: Test C library basic functionality
@@ -158,10 +158,10 @@ jobs:
         WORKDIR /app
 
         # Test conservative build (Tier 1)
-        RUN make clean && BUILD_TIER=1 make
+        RUN make clean && BUILD_TIER=1 make all
 
         # Test basic functionality
-        RUN echo '{"test": "data"}' | ./bin/json_tools -f
+        RUN chmod +x ./bin/json_tools && echo '{"test": "data"}' | ./bin/json_tools -f
 
         # Test Python build
         RUN cd py-lib && BUILD_TIER=1 python3 setup.py build_ext --inplace
