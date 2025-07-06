@@ -355,17 +355,19 @@ static PyObject* py_get_flattened_paths_with_types(PyObject* self, PyObject* arg
 
     // Apply pretty printing if requested
     char* final_result = result;
+    int result_was_freed = 0;
     if (pretty_print) {
         cJSON* json = cJSON_Parse(result);
         if (json) {
             free(result);
+            result_was_freed = 1;
             final_result = cJSON_Print(json);
             cJSON_Delete(json);
         }
     }
 
     if (final_result == NULL) {
-        if (result != final_result) free(result);
+        if (!result_was_freed) free(result);
         PyErr_SetString(PyExc_MemoryError, "Failed to format result");
         return NULL;
     }
@@ -637,7 +639,7 @@ static PyObject* py_replace_values(PyObject* self, PyObject* args, PyObject* kwa
 }
 
 // JsonToolsBuilder Python bindings
-static PyObject* py_json_tools_builder_execute(PyObject* self, PyObject* args) {
+static PyObject* py_json_tools_builder_execute(PyObject* self __attribute__((unused)), PyObject* args) {
     const char* json_string;
     PyObject* operations_list;
     int pretty_print = 0;

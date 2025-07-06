@@ -343,7 +343,7 @@ regex_replace_result_t regex_replace_first(regex_engine_t* regex, const char* te
             size_t text_len = strlen(text);
             size_t replacement_len = strlen(replacement);
             size_t prefix_len = match.rm_so;
-            size_t match_len = match.rm_eo - match.rm_so;
+            // size_t match_len = match.rm_eo - match.rm_so;  // Not used in this function
             size_t suffix_len = text_len - match.rm_eo;
             size_t result_len = prefix_len + replacement_len + suffix_len;
 

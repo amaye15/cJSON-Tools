@@ -24,8 +24,9 @@
 // Runtime CPU feature detection
 static int has_avx2 = -1;
 static int has_sse2 = -1;
-static int has_neon = -1;
+static int has_neon __attribute__((unused)) = -1;
 
+static void detect_cpu_features(void) __attribute__((unused));
 static void detect_cpu_features(void) {
     if (has_avx2 == -1) {
 #ifdef __x86_64__
@@ -253,7 +254,7 @@ HOT_PATH static int is_valid_number_simd(const char* str, size_t len) {
 
 // ARM NEON implementation
 #ifdef __aarch64__
-static size_t strlen_simd_neon(const char* str) {
+static size_t strlen_simd_neon(const char* str) __attribute__((unused)) {
     // SAFETY: For now, fall back to standard strlen to avoid buffer overflows
     // SIMD strlen is complex to implement safely without knowing buffer boundaries
     // TODO: Implement safe SIMD strlen with proper bounds checking
