@@ -122,7 +122,9 @@ cjson_tools_module = Extension(
         [
             ("_CRT_SECURE_NO_WARNINGS", None),
             ("CJSON_TOOLS_NO_MAIN", None),  # Exclude main function
-        ] if is_windows else [
+        ]
+        if is_windows
+        else [
             ("_GNU_SOURCE", None),
             ("CJSON_TOOLS_NO_MAIN", None),  # Exclude main function
         ]
